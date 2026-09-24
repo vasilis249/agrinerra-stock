@@ -70,6 +70,29 @@ h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;margin:0;text-wrap:balan
 .tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
 .tab .cnt{font-family:"IBM Plex Mono";font-size:11px;opacity:.7;margin-left:5px}
 
+/* αναζήτηση και command palette */
+.qbox{width:210px;padding:7px 10px;font-size:13px}
+@media(max-width:640px){.qbox{order:1;width:100%}}
+.tab .qcnt{font-family:"IBM Plex Mono";font-size:11px;margin-left:5px;color:var(--accent);font-weight:600}
+.searching .tab .cnt{display:none}
+.qbar{display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center;padding:10px 14px;margin-bottom:16px;
+  background:var(--accent-soft);border-radius:10px;font-size:13px}
+.qbar b{font-weight:600}
+.qbar button{appearance:none;border:0;background:none;padding:4px 0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.qbar button.zero{color:var(--muted);text-decoration:none;font-weight:400}
+.qbar .qclear{margin-left:auto}
+.pal-scrim{align-items:flex-start!important;padding:10vh 12px 0}
+.pal{background:var(--surface);width:100%;max-width:580px;border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.pal input{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:15px 16px;font-size:15px}
+.pal input:focus{outline:0}
+.pal ul{list-style:none;margin:0;padding:6px;max-height:55vh;overflow-y:auto}
+.pal li{display:flex;gap:10px;align-items:baseline;padding:10px;border-radius:7px;cursor:pointer}
+.pal li[aria-selected="true"]{background:var(--accent-soft)}
+.pal-g{font-family:Archivo;font-weight:600;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);width:84px;flex:none}
+.pal-h{margin-left:auto;color:var(--faint);font-size:12px;font-family:"IBM Plex Mono";text-align:right}
+.pal-none{padding:18px;color:var(--muted);text-align:center}
+.pal-help{margin:0;padding:8px 14px;border-top:1px solid var(--line);color:var(--faint);font-size:11.5px}
+
 .btn{
   appearance:none;cursor:pointer;font-family:Archivo;font-weight:600;font-size:13px;
   border-radius:8px;padding:8px 13px;border:1px solid var(--line-strong);
@@ -254,6 +277,9 @@ window.AGRINNERA_CONFIG = {
 <header class="top">
   <div class="top-in">
     <div class="brand"><b>AGRINNERA</b><span>Απόθεμα</span></div>
+    <input type="search" id="q" class="qbox" placeholder="Αναζήτηση…" autocomplete="off"
+      aria-label="Αναζήτηση σε προϊόντα, πελάτες, παρτίδες και παραγγελίες"
+      title="Προϊόντα, πελάτες, παρτίδες, αριθμοί παραγγελίας. Συντομεύσεις: / αναζήτηση, n νέα κίνηση, Ctrl+K εντολές">
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-tab="stock" aria-selected="true">Απόθεμα</button>
       <button class="tab" role="tab" data-tab="suggest" aria-selected="false">Προτεινόμενη παραγγελία<span class="cnt" id="cnt-suggest"></span></button>
@@ -278,6 +304,7 @@ window.AGRINNERA_CONFIG = {
 </header>
 
 <main>
+  <div id="qbar" class="qbar" hidden></div>
   <section id="tab-stock" class="stack">
     <div id="alerts"></div>
     <div class="panel">
@@ -554,6 +581,7 @@ function renderAll(){
   document.getElementById("cnt-batches").textContent=exp?exp:"";
   var ar=activeResv().length;
   document.getElementById("cnt-resv").textContent=ar?ar:"";
+  applySearch();
 }
 
 function renderAlerts(){
@@ -1516,6 +1544,162 @@ function exportCSV(){
   dl("agrinnera-kiniseis-"+today()+".csv",BOM+csv,"text/csv");
   toast("Το CSV κατέβηκε");
 }
+
+/* ---------- αναζήτηση, συντομεύσεις, command palette ---------- */
+/* Ένα κουτί φιλτράρει όλες τις καρτέλες μαζί: προϊόντα, πελάτες, παρτίδες, αριθμούς
+   παραγγελίας. Χωρίς τόνους και πεζά-κεφαλαία, ώστε «παπαδοπουλος» να βρίσκει «Παπαδόπουλος». */
+var Q="";
+function norm(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/ς/g,"σ"); }
+function tabName(btn){ return btn.firstChild?btn.firstChild.textContent:""; }
+function applySearch(){
+  var toks=norm(Q).split(/\s+/).filter(Boolean), counts={};
+  document.body.classList.toggle("searching",toks.length>0);
+  Array.prototype.forEach.call(document.querySelectorAll("main section[id^='tab-']"),function(sec){
+    var c=0;
+    Array.prototype.forEach.call(sec.querySelectorAll("tbody"),function(tb){
+      var old=tb.querySelector("tr.q-none"); if(old) old.remove();
+      var shown=0;
+      Array.prototype.forEach.call(tb.rows,function(tr){
+        if(tr.querySelector("td[colspan]")){ tr.hidden=toks.length>0; return; }   /* κενή κατάσταση */
+        var t=norm(tr.textContent);
+        var hit=toks.every(function(k){ return t.indexOf(k)>=0; });
+        tr.hidden=!hit; if(hit) shown++;
+      });
+      c+=shown;
+      if(toks.length && !shown){
+        var th=tb.parentNode.querySelectorAll("thead th").length||1;
+        var tr=tb.insertRow(); tr.className="q-none";
+        tr.innerHTML='<td colspan="'+th+'"><div class="empty"><b>Κανένα αποτέλεσμα</b>Τίποτα εδώ για «'+esc(Q.trim())+'».</div></td>';
+      }
+    });
+    counts[sec.id.slice(4)]=c;
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#alerts .alert"),function(a){
+    var t=norm(a.textContent);
+    a.hidden=toks.length>0 && !toks.every(function(k){ return t.indexOf(k)>=0; });
+  });
+  var parts=[];
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs .tab"),function(b){
+    var k=b.getAttribute("data-tab"), q=b.querySelector(".qcnt");
+    if(!q){ q=document.createElement("span"); q.className="qcnt"; b.appendChild(q); }
+    q.textContent=toks.length?counts[k]||0:"";
+    if(toks.length) parts.push('<button type="button" data-qtab="'+k+'"'+(counts[k]?'':' class="zero"')+'>'+
+      esc(tabName(b))+' '+(counts[k]||0)+'</button>');
+  });
+  var bar=document.getElementById("qbar");
+  bar.hidden=!toks.length;
+  if(toks.length) bar.innerHTML='<span>Αναζήτηση <b>«'+esc(Q.trim())+'»</b>:</span>'+parts.join("")+
+    '<button type="button" class="qclear" data-qclear>Καθαρισμός</button>';
+}
+function setSearch(term){ Q=term||""; document.getElementById("q").value=Q; applySearch(); }
+function goTab(k){ var b=document.querySelector('#tabs .tab[data-tab="'+k+'"]'); if(b) b.click(); }
+function firstTabWithHits(){
+  var b=document.querySelector("#qbar [data-qtab]:not(.zero)"); return b?b.getAttribute("data-qtab"):"";
+}
+(function(){
+  var q=document.getElementById("q");
+  q.addEventListener("input",function(){ Q=q.value; applySearch(); });
+  q.addEventListener("keydown",function(e){
+    if(e.key==="Escape"){ setSearch(""); q.blur(); }
+    else if(e.key==="Enter"){   /* αν η τρέχουσα καρτέλα δεν έχει τίποτα, πήγαινε εκεί που βρέθηκε */
+      var cur=document.querySelector('#tabs .tab[aria-selected="true"]');
+      var zero=document.querySelector('#qbar [data-qtab="'+(cur?cur.getAttribute("data-tab"):"")+'"].zero');
+      if(zero){ var k=firstTabWithHits(); if(k) goTab(k); }
+    }
+  });
+  document.getElementById("qbar").addEventListener("click",function(e){
+    var t=e.target.closest("[data-qtab]"); if(t){ goTab(t.getAttribute("data-qtab")); return; }
+    if(e.target.closest("[data-qclear]")) setSearch("");
+  });
+})();
+
+function paletteItems(){
+  var it=[];
+  function act(label,hint,run){ it.push({g:"Ενέργεια",label:label,hint:hint,run:run}); }
+  act("Νέα κίνηση","n",function(){ moveForm(); });
+  act("Νέα δέσμευση","",resvForm);
+  act("Νέα παραγγελία Γερμανίας","",function(){ orderForm(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs .tab"),function(b){
+    act("Μετάβαση: "+tabName(b),"",function(){ b.click(); });
+  });
+  Array.prototype.forEach.call(document.getElementById("coFilter").options,function(o){
+    act("Εταιρεία: "+o.textContent,"",function(){
+      var s=document.getElementById("coFilter"); s.value=o.value; s.dispatchEvent(new Event("change"));
+    });
+  });
+  act("Ανανέωση δεδομένων","",function(){ loadAll().catch(function(){}); });
+  act("Εξαγωγή CSV κινήσεων","",exportCSV);
+  act("Αντίγραφο όλων των δεδομένων","",exportAll);
+  products.forEach(function(p){
+    it.push({g:"Προϊόν",label:p.name,hint:p.code||"",run:function(){ goTab("stock"); setSearch(p.name); }});
+  });
+  customers.forEach(function(c){
+    var hasResv=reservations.some(function(r){ return r.customer===c.id; });
+    it.push({g:"Πελάτης",label:c.name,hint:"",run:function(){ goTab(hasResv?"resv":"moves"); setSearch(c.name); }});
+  });
+  batches().forEach(function(b){
+    var p=prod(b.product);
+    it.push({g:"Παρτίδα",label:b.batch,hint:(p?p.name:b.product),run:function(){ goTab("batches"); setSearch(b.batch); }});
+  });
+  var refs={};
+  orders.forEach(function(o){
+    if(!o.ref||refs[o.ref]) return; refs[o.ref]=true;
+    it.push({g:"Παραγγελία",label:o.ref,hint:greekDate(o.date),run:function(){ goTab("orders"); setSearch(o.ref); }});
+  });
+  return it;
+}
+function paletteOpen(){ return !!document.getElementById("palette"); }
+function closePalette(){ var p=document.getElementById("palette"); if(p) p.remove(); }
+function openPalette(){
+  if(paletteOpen()) return;
+  var all=paletteItems(), shown=[], sel=0;
+  var box=document.createElement("div"); box.id="palette"; box.className="scrim pal-scrim";
+  box.innerHTML='<div class="pal" role="dialog" aria-modal="true" aria-label="Εντολές">'+
+    '<input type="text" id="palIn" placeholder="Εντολή, προϊόν, πελάτης, παρτίδα ή παραγγελία" autocomplete="off"'+
+      ' role="combobox" aria-expanded="true" aria-controls="palList">'+
+    '<ul id="palList" role="listbox"></ul>'+
+    '<p class="pal-help">↑ ↓ επιλογή · Enter εκτέλεση · Esc κλείσιμο</p></div>';
+  document.body.appendChild(box);
+  var inp=document.getElementById("palIn"), ul=document.getElementById("palList");
+  function draw(){
+    var toks=norm(inp.value).split(/\s+/).filter(Boolean);
+    shown=all.filter(function(x){
+      if(!toks.length) return x.g==="Ενέργεια";
+      var t=norm(x.g+" "+x.label+" "+x.hint);
+      return toks.every(function(k){ return t.indexOf(k)>=0; });
+    }).slice(0,40);
+    if(sel>=shown.length) sel=0;
+    ul.innerHTML=shown.length?shown.map(function(x,i){
+      return '<li role="option" id="pal-'+i+'" data-i="'+i+'" aria-selected="'+(i===sel)+'">'+
+        '<span class="pal-g">'+esc(x.g)+'</span><span>'+esc(x.label)+'</span><span class="pal-h">'+esc(x.hint)+'</span></li>';
+    }).join(""):'<li class="pal-none">Τίποτα για «'+esc(inp.value)+'»</li>';
+    inp.setAttribute("aria-activedescendant",shown.length?"pal-"+sel:"");
+    var cur=ul.querySelector('[aria-selected="true"]'); if(cur) cur.scrollIntoView({block:"nearest"});
+  }
+  function run(i){ var x=shown[i]; if(!x) return; closePalette(); x.run(); }
+  inp.addEventListener("input",function(){ sel=0; draw(); });
+  inp.addEventListener("keydown",function(e){
+    if(e.key==="ArrowDown"){ e.preventDefault(); sel=Math.min(shown.length-1,sel+1); draw(); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); sel=Math.max(0,sel-1); draw(); }
+    else if(e.key==="Enter"){ e.preventDefault(); run(sel); }
+    else if(e.key==="Escape"){ e.stopPropagation(); closePalette(); }
+  });
+  ul.addEventListener("click",function(e){ var li=e.target.closest("li[data-i]"); if(li) run(+li.getAttribute("data-i")); });
+  box.addEventListener("mousedown",function(e){ if(e.target===box) closePalette(); });
+  draw(); inp.focus();
+}
+document.addEventListener("keydown",function(e){
+  if(document.getElementById("app").hidden) return;
+  var modal=!!document.getElementById("modal").firstChild;
+  if((e.ctrlKey||e.metaKey) && !e.altKey && (e.key==="k"||e.key==="K"||e.code==="KeyK")){
+    e.preventDefault(); if(paletteOpen()) closePalette(); else if(!modal) openPalette(); return;
+  }
+  var t=e.target, typing=/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)||t.isContentEditable;
+  if(typing||modal||paletteOpen()||e.ctrlKey||e.metaKey||e.altKey) return;
+  if(e.key==="/"){ e.preventDefault(); var q=document.getElementById("q"); q.focus(); q.select(); }
+  else if(e.key==="n"||e.key==="ν"){ e.preventDefault(); moveForm(); }
+  else if(e.key==="Escape" && Q && t.isConnected) setSearch("");   /* όχι όταν το Esc μόλις έκλεισε φόρμα */
+});
 
 /* ---------- events ---------- */
 document.getElementById("tabs").addEventListener("click",function(e){
