@@ -187,6 +187,22 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .calc{font-family:"IBM Plex Mono";font-size:12.5px;color:var(--muted);background:var(--raised);border-radius:7px;padding:8px 10px}
 .calc b{color:var(--ink);font-weight:600}
 
+/* προτεινόμενη παραγγελία */
+.truck{display:flex;flex-direction:column;gap:5px;min-width:200px}
+.truck .num{font-size:13px;font-weight:600}
+.truck .sec{font-size:11px}
+.tbar{display:block;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.tbar i{display:block;height:100%;background:var(--muted)}
+.sugTable{min-width:780px}
+.sug-in{width:76px;text-align:right;padding:6px 8px}
+.sug-p{display:flex;gap:10px;align-items:flex-start}
+.sug-p .sug-co{display:block}
+.sug-chk{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--accent)}
+.sug-co{width:auto;margin-top:6px;padding:4px 6px;font-size:12px}
+.sug-foot{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:13px 16px;border-top:1px solid var(--line);background:var(--raised)}
+.sug-foot label{flex:1 1 220px}
+tr.sug-off td{opacity:.5}
+
 /* reserved vs free */
 .bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:5px;max-width:160px}
 .bar i{display:block;height:100%}
@@ -240,6 +256,7 @@ window.AGRINNERA_CONFIG = {
     <div class="brand"><b>AGRINNERA</b><span>Απόθεμα</span></div>
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-tab="stock" aria-selected="true">Απόθεμα</button>
+      <button class="tab" role="tab" data-tab="suggest" aria-selected="false">Προτεινόμενη παραγγελία<span class="cnt" id="cnt-suggest"></span></button>
       <button class="tab" role="tab" data-tab="moves" aria-selected="false">Κινήσεις<span class="cnt" id="cnt-moves"></span></button>
       <button class="tab" role="tab" data-tab="resv" aria-selected="false">Δεσμεύσεις<span class="cnt" id="cnt-resv"></span></button>
       <button class="tab" role="tab" data-tab="orders" aria-selected="false">Παραγγελίες<span class="cnt" id="cnt-orders"></span></button>
@@ -284,6 +301,11 @@ window.AGRINNERA_CONFIG = {
       <div class="totals" id="stockTotals"></div>
       <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας. Το <b>προβλεπόμενο</b> είναι ό,τι θα έχεις ελεύθερο όταν φτάσουν οι παραγγελίες: Απόθεμα − Δεσμευμένο + Καθ' οδόν.</p>
     </div>
+  </section>
+
+  <section id="tab-suggest" class="stack" hidden>
+    <div id="suggest" class="stack"></div>
+    <p class="note panel">Εδώ εμφανίζονται τα προϊόντα με μηνιαία ζήτηση που το <b>προβλεπόμενο</b> (Απόθεμα − Δεσμευμένο + Καθ' οδόν) είναι κάτω από το σημείο αναπαραγγελίας. Η πρόταση φέρνει το προβλεπόμενο στο σημείο αναπαραγγελίας συν έναν μήνα ζήτησης, στρογγυλεμένη προς τα πάνω σε <b>ολόκληρες παλέτες</b> και τουλάχιστον όσο η ελάχιστη παραγγελία του προϊόντος. Ένα φορτηγό χωράει 24 παλέτες. Άλλαξε τις παλέτες ή βγάλε το τικ από ό,τι δεν θέλεις και πάτα «Δημιουργία».</p>
   </section>
 
   <section id="tab-moves" class="stack" hidden>
@@ -378,7 +400,7 @@ window.AGRINNERA_CONFIG = {
       <div class="tw"><table id="prodTable">
         <thead><tr>
           <th>Προϊόν</th><th>Τεμάχια ανά παλέτα</th><th>Τιμή ανά τεμάχιο</th>
-          <th>Παράδοση (εβδ.)</th><th>Ζήτηση τεμ./μήνα</th><th></th>
+          <th>Παράδοση (εβδ.)</th><th>Ζήτηση τεμ./μήνα</th><th>Ελάχιστη παραγγελία</th><th></th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
@@ -524,7 +546,7 @@ function batches(){
 
 /* ---------- rendering ---------- */
 function renderAll(){
-  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts();
+  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderSuggest();
   var open=orders.filter(function(o){return o.status!=="ΠΑΡΕΛΗΦΘΗ";}).length;
   document.getElementById("cnt-moves").textContent=movements.length?movements.length:"";
   document.getElementById("cnt-orders").textContent=open?open:"";
@@ -758,6 +780,7 @@ function renderProducts(){
       '<td class="num">'+n1(p.price_eur_kg)+' €</td>'+
       '<td class="num">'+n(p.lead_weeks)+'</td>'+
       '<td class="num">'+n(p.monthly_kg)+'</td>'+
+      '<td class="num">'+(p.moq?qty(p,p.moq):'—')+'</td>'+
       '<td><button class="btn btn-sm" data-edit-prod="'+esc(p.id)+'">Επεξεργασία</button></td>'+
     '</tr>';
   }).join("");
@@ -767,6 +790,158 @@ function renderProducts(){
     return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'; }).join("");
   sel.value=cur;
 }
+
+/* ---------- προτεινόμενη παραγγελία ---------- */
+/* Όπως οι κανόνες αναπαραγγελίας του Odoo: όταν το προβλεπόμενο πέσει κάτω από το σημείο
+   αναπαραγγελίας, προτείνεται ποσότητα που το φέρνει στο σημείο + έναν μήνα ζήτησης,
+   σε ολόκληρες παλέτες και τουλάχιστον την ελάχιστη παραγγελία (moq). */
+var TRUCK=24;
+var SUG={};   /* ό,τι άλλαξε ο χρήστης: "εταιρεία|προϊόν" -> {off, qty} και "co|προϊόν" -> εταιρεία */
+function metricsFor(p,owner){ var keep=CO; CO=owner; try{ return metrics(p); } finally{ CO=keep; } }
+function ownersOf(pid){
+  var seen={};
+  [movements,orders,reservations].forEach(function(list){
+    list.forEach(function(x){ if(x.product===pid && x.owner) seen[x.owner]=true; });
+  });
+  return COMPANIES.filter(function(c){ return seen[c]; });
+}
+function roundUp(v,step){ return step>0 ? Math.ceil(v/step-1e-9)*step : Math.ceil(v-1e-9); }
+function addDays(iso,d){
+  var t=new Date(iso+"T00:00:00"); t.setDate(t.getDate()+d);
+  return t.getFullYear()+"-"+p2(t.getMonth()+1)+"-"+p2(t.getDate());
+}
+function suggestions(){
+  var out=[];
+  products.forEach(function(p){
+    if(!((p.monthly_kg||0)>0)) return;
+    var owners=ownersOf(p.id), pick=!owners.length;   /* χωρίς ιστορικό: διαλέγεις εταιρεία */
+    if(pick) owners=[CO||SUG["co|"+p.id]||COMPANIES[0]];
+    owners.forEach(function(co){
+      if(CO && co!==CO) return;
+      var m=metricsFor(p,co), fc=m.free+m.transit;
+      if(fc>=m.rop) return;
+      var pp=perPallet(p), moq=roundUp(p.moq||0,pp);
+      var need=Math.max(roundUp(m.rop+(p.monthly_kg||0)-fc,pp), moq);
+      var key=co+"|"+p.id, s=SUG[key]||{}, units=pp?need/pp:need;
+      out.push({key:key,p:p,co:co,pick:pick,m:m,fc:fc,pp:pp,moq:moq,units:units,
+                want:(s.qty!=null?s.qty:units),on:!s.off});
+    });
+  });
+  return out;
+}
+function truckText(pal,loose){
+  var trucks=Math.max(1,Math.ceil(pal/TRUCK-1e-9)), cap=trucks*TRUCK;
+  return {txt:n(pal)+" / "+cap+" παλέτες "+(trucks>1?"· "+trucks+" φορτηγά":"φορτηγό"),
+          sub:(cap-pal>0?"χωράνε ακόμα "+n(cap-pal):"γεμάτο")+(loose?" · + "+n(loose)+" τεμ. χωρίς παλέτα":""),
+          pct:Math.min(100,pal/cap*100)};
+}
+function renderSuggest(){
+  var host=document.getElementById("suggest"); if(!host) return;
+  var ae=document.activeElement;
+  if(host.contains(ae) && ae.matches("input[type=number],input[type=text]")) return;   /* μην χαθεί ό,τι γράφεις */
+  var list=suggestions();
+  document.getElementById("cnt-suggest").textContent=list.length?list.length:"";
+  if(!list.length){
+    host.innerHTML='<div class="panel"><div class="empty"><b>Δεν χρειάζεται παραγγελία</b>Κανένα προϊόν δεν είναι κάτω από το σημείο αναπαραγγελίας'+(CO?' για '+esc(CO):'')+'.</div></div>';
+    return;
+  }
+  host.innerHTML=COMPANIES.map(function(co){
+    var lines=list.filter(function(l){ return l.co===co; });
+    if(!lines.length) return "";
+    return '<div class="panel" data-sug-group="'+co+'">'+
+      '<div class="panel-head"><h2>'+co+'</h2>'+
+        '<span class="sub">'+lines.length+(lines.length===1?' προϊόν':' προϊόντα')+' κάτω από το σημείο αναπαραγγελίας</span>'+
+        '<div class="truck"><span class="num" data-truck></span><span class="tbar"><i data-truck-bar></i></span><span class="sec" data-truck-sub></span></div>'+
+      '</div>'+
+      '<div class="tw"><table class="sugTable"><thead><tr>'+
+        '<th>Προϊόν</th><th>Προβλεπόμενο</th><th>Σημείο αναπαρ.</th><th>Ελάχιστη παραγγελία</th><th>Πρόταση</th><th>Άφιξη περίπου</th>'+
+      '</tr></thead><tbody>'+lines.map(sugRow).join("")+'</tbody></table></div>'+
+      '<div class="sug-foot">'+
+        '<label>Αριθμός παραγγελίας<input type="text" data-sug-ref placeholder="π.χ. PO-2026-08 (προαιρετικά)"></label>'+
+        '<button class="btn btn-primary" data-sug-make="'+co+'"></button>'+
+      '</div></div>';
+  }).join("");
+  COMPANIES.forEach(syncSugGroup);
+}
+function sugRow(l){
+  var p=l.p;
+  return '<tr data-sug="'+esc(l.key)+'"'+(l.on?'':' class="sug-off"')+'>'+
+    '<td class="stripe s-'+(l.fc<=0?"crit":"warn")+'"><div class="sug-p">'+
+      '<input type="checkbox" class="sug-chk" data-sug-on aria-label="Να μπει στην παραγγελία"'+(l.on?" checked":"")+'>'+
+      '<div><span class="pname">'+esc(p.name)+'</span><span class="pcode">'+esc(p.code||p.id)+'</span>'+
+      (l.pick&&!CO?'<select class="sug-co" data-sug-co="'+esc(p.id)+'" aria-label="Εταιρεία">'+COMPANIES.map(function(c){
+        return '<option'+(c===l.co?" selected":"")+'>'+c+'</option>'; }).join("")+'</select>':'')+
+    '</div></div></td>'+
+    '<td><span class="num">'+(l.fc?qty(p,l.fc):'0 τεμ.')+'</span>'+(l.pp&&l.fc?'<span class="sec">'+pcs(l.fc)+'</span>':'')+'</td>'+
+    '<td class="num">'+qty(p,l.m.rop)+'</td>'+
+    '<td class="num">'+(l.moq?qty(p,l.moq):'—')+'</td>'+
+    '<td style="white-space:nowrap"><input type="number" class="sug-in" data-sug-qty min="0" step="1" value="'+l.want+'" aria-label="'+(l.pp?'Παλέτες':'Τεμάχια')+'"> '+
+      (l.pp?'παλ.':'τεμ.')+'<span class="sec" data-sug-calc></span></td>'+
+    '<td class="num">'+greekDate(addDays(today(),(p.lead_weeks||4)*7))+'</td>'+
+  '</tr>';
+}
+function syncSugGroup(co){
+  var box=document.querySelector('[data-sug-group="'+co+'"]'); if(!box) return;
+  var byKey={}; suggestions().forEach(function(l){ byKey[l.key]=l; });
+  var pal=0, loose=0, cnt=0;
+  Array.prototype.forEach.call(box.querySelectorAll("tr[data-sug]"),function(tr){
+    var l=byKey[tr.getAttribute("data-sug")]; if(!l) return;
+    var calc=tr.querySelector("[data-sug-calc]");
+    calc.textContent=l.pp?pcs(l.want*l.pp):"";
+    if(l.want>0 && l.moq && (l.pp?l.want*l.pp:l.want)<l.moq) calc.textContent+=" · κάτω από την ελάχιστη";
+    tr.className=l.on?"":"sug-off";
+    if(!l.on||!(l.want>0)) return;
+    cnt++; if(l.pp) pal+=l.want; else loose+=l.want;
+  });
+  var t=truckText(pal,loose);
+  box.querySelector("[data-truck]").textContent=t.txt;
+  box.querySelector("[data-truck-sub]").textContent=t.sub;
+  box.querySelector("[data-truck-bar]").style.width=t.pct+"%";
+  var b=box.querySelector("[data-sug-make]");
+  b.textContent=cnt?"Δημιουργία "+cnt+(cnt===1?" παραγγελίας":" παραγγελιών"):"Διάλεξε προϊόντα";
+  b.disabled=!cnt;
+}
+function makeOrders(co){
+  var box=document.querySelector('[data-sug-group="'+co+'"]'); if(!box) return;
+  var ref=box.querySelector("[data-sug-ref]").value.trim();
+  var lines=suggestions().filter(function(l){ return l.co===co && l.on && l.want>0; });
+  if(!lines.length){ toast("Διάλεξε τουλάχιστον ένα προϊόν"); return; }
+  var recs=lines.map(function(l){
+    return {id:uid("o"), owner:co, date:today(), eta:addDays(today(),(l.p.lead_weeks||4)*7),
+            product:l.p.id, qty_kg:l.pp?l.want*l.pp:l.want, pallets:l.pp?l.want:0,
+            ref:ref, status:"ΑΝΑΜΕΝΕΤΑΙ"};
+  });
+  box.querySelector("[data-sug-make]").disabled=true;
+  if(document.activeElement) document.activeElement.blur();
+  (function next(i){
+    if(i>=recs.length){
+      lines.forEach(function(l){ delete SUG[l.key]; });
+      toast(recs.length===1?"Δημιουργήθηκε 1 παραγγελία":"Δημιουργήθηκαν "+recs.length+" παραγγελίες");
+      document.querySelector('.tab[data-tab="orders"]').click();
+      return;
+    }
+    save("orders",recs[i],function(){ next(i+1); });
+  })(0);
+}
+(function(){
+  var host=document.getElementById("suggest");
+  function keyOf(el){ var tr=el.closest("tr[data-sug]"); return tr?tr.getAttribute("data-sug"):""; }
+  function coOf(el){ var g=el.closest("[data-sug-group]"); return g?g.getAttribute("data-sug-group"):""; }
+  host.addEventListener("input",function(e){
+    if(!e.target.hasAttribute("data-sug-qty")) return;
+    var k=keyOf(e.target); SUG[k]=SUG[k]||{};
+    SUG[k].qty=Math.max(0,Math.round(parseFloat(e.target.value)||0));
+    syncSugGroup(coOf(e.target));
+  });
+  host.addEventListener("change",function(e){
+    var t=e.target;
+    if(t.hasAttribute("data-sug-on")){ var k=keyOf(t); SUG[k]=SUG[k]||{}; SUG[k].off=!t.checked; syncSugGroup(coOf(t)); }
+    else if(t.hasAttribute("data-sug-co")){ SUG["co|"+t.getAttribute("data-sug-co")]=t.value; renderSuggest(); }
+  });
+  host.addEventListener("click",function(e){
+    var b=e.target.closest("[data-sug-make]"); if(b) makeOrders(b.getAttribute("data-sug-make"));
+  });
+})();
 
 /* ---------- modal ---------- */
 function closeModal(){ document.getElementById("modal").innerHTML=""; }
@@ -1132,6 +1307,7 @@ function prodForm(pid){
       '<label>Χρόνος παράδοσης (εβδομάδες)<input type="number" id="pfLead" step="1" min="0" value="'+(p.lead_weeks||4)+'"></label>'+
       '<label>Ζήτηση (τεμάχια/μήνα)<input type="number" id="pfMonthly" step="1" min="0" value="'+(p.monthly_kg||0)+'"></label>'+
     '</div>'+
+    '<label>Ελάχιστη παραγγελία (τεμάχια)<input type="number" id="pfMoq" step="1" min="0" value="'+(p.moq||0)+'"></label>'+
     '<p class="calc">Με αυτά τα νούμερα το σημείο αναπαραγγελίας είναι <b id="pfRop"></b>.</p>'+
     '<div class="acts"><button type="button" class="btn" id="pfCancel">Ακύρωση</button>'+
     '<button type="submit" class="btn btn-primary">Αποθήκευση</button></div>'+
@@ -1157,6 +1333,7 @@ function prodForm(pid){
     rec.price_eur_kg=parseFloat(document.getElementById("pfPrice").value)||0;
     rec.lead_weeks=parseFloat(document.getElementById("pfLead").value)||0;
     rec.monthly_kg=parseFloat(document.getElementById("pfMonthly").value)||0;
+    rec.moq=parseFloat(document.getElementById("pfMoq").value)||0;
     save("products",rec,function(){ toast("Αποθηκεύτηκε"); closeModal(); });
   });
 }
