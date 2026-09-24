@@ -1,0 +1,1459 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Απόθεμα AGRINNERA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F4F6F3; --surface:#FFFFFF; --raised:#EDF1EE;
+  --ink:#15201B; --muted:#5C6B63; --faint:#8A978F;
+  --line:#DCE2DD; --line-strong:#C4CEC7;
+  --accent:#1D5D45; --accent-soft:#E2EFE8;
+  --ok:#2E7D5B; --ok-soft:#E3F1E9;
+  --warn:#B4610A; --warn-soft:#FBEDDC;
+  --crit:#A32E28; --crit-soft:#FAE5E3;
+  --shadow:0 1px 2px rgba(21,32,27,.06), 0 4px 14px rgba(21,32,27,.05);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme:dark;
+  --ground:#0E1411; --surface:#161D19; --raised:#1D2622;
+  --ink:#E6EDE8; --muted:#94A49B; --faint:#71827A;
+  --line:#263029; --line-strong:#33413A;
+  --accent:#57A883; --accent-soft:#172A22;
+  --ok:#57A883; --ok-soft:#14271F;
+  --warn:#E08A2E; --warn-soft:#2C2114;
+  --crit:#DC6A62; --crit-soft:#2E1917;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E1411; --surface:#161D19; --raised:#1D2622;
+  --ink:#E6EDE8; --muted:#94A49B; --faint:#71827A;
+  --line:#263029; --line-strong:#33413A;
+  --accent:#57A883; --accent-soft:#172A22;
+  --ok:#57A883; --ok-soft:#14271F;
+  --warn:#E08A2E; --warn-soft:#2C2114;
+  --crit:#DC6A62; --crit-soft:#2E1917;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5; margin:0;
+}
+h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+.top{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:9px;margin-right:auto}
+.brand b{font-family:Archivo;font-weight:700;font-size:16px;letter-spacing:.02em}
+.brand span{color:var(--faint);font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-family:Archivo;font-weight:600}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  appearance:none;border:0;background:transparent;color:var(--muted);
+  font-family:Archivo;font-weight:600;font-size:12.5px;letter-spacing:.02em;
+  padding:7px 11px;border-radius:7px;cursor:pointer;white-space:nowrap;
+}
+.tab:hover{color:var(--ink);background:var(--raised)}
+.tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.tab .cnt{font-family:"IBM Plex Mono";font-size:11px;opacity:.7;margin-left:5px}
+
+.btn{
+  appearance:none;cursor:pointer;font-family:Archivo;font-weight:600;font-size:13px;
+  border-radius:8px;padding:8px 13px;border:1px solid var(--line-strong);
+  background:var(--surface);color:var(--ink);
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{filter:brightness(1.1);color:#fff}
+.btn-sm{padding:5px 9px;font-size:12px;border-radius:6px}
+.cosel{
+  width:auto;font-family:Archivo;font-weight:600;font-size:12.5px;padding:7px 10px;
+  border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
+}
+.co{font-family:Archivo;font-weight:600;font-size:10px;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:var(--raised);color:var(--muted)}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn-ghost:hover{background:var(--raised);color:var(--crit);border-color:transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- layout ---------- */
+main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.panel-head{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:13px 16px;border-bottom:1px solid var(--line);
+}
+.panel-head h2{font-size:14px;font-weight:600;letter-spacing:.01em}
+.panel-head .sub{color:var(--muted);font-size:12.5px;margin-right:auto}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* ---------- alert strip ---------- */
+.alerts{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.alert{display:flex;gap:11px;align-items:baseline;padding:11px 15px;background:var(--surface);font-size:13px}
+.alert .sev{
+  font-family:Archivo;font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 7px;border-radius:4px;flex:none;
+}
+.sev-crit{background:var(--crit-soft);color:var(--crit)}
+.sev-warn{background:var(--warn-soft);color:var(--warn)}
+.alert b{font-weight:600}
+.alert .why{color:var(--muted);margin-left:auto;text-align:right;font-size:12.5px}
+
+/* ---------- table ---------- */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th{
+  font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+th:first-child{text-align:left}
+td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--raised)}
+.pname{font-weight:600;display:block;line-height:1.3}
+.pcode{color:var(--faint);font-size:11px;font-family:"IBM Plex Mono"}
+.stripe{border-left:3px solid transparent;padding-left:12px}
+.s-ok{border-left-color:var(--ok)}
+.s-warn{border-left-color:var(--warn)}
+.s-crit{border-left-color:var(--crit)}
+.s-idle{border-left-color:var(--line-strong)}
+.sec{color:var(--faint);font-size:11.5px;display:block;font-family:"IBM Plex Mono"}
+.pill{
+  display:inline-block;font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.05em;
+  padding:2px 8px;border-radius:20px;white-space:nowrap;
+}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-crit{background:var(--crit-soft);color:var(--crit)}
+.p-idle{background:var(--raised);color:var(--faint)}
+.p-in{background:var(--ok-soft);color:var(--ok)}
+.p-out{background:var(--crit-soft);color:var(--crit)}
+.p-adj{background:var(--warn-soft);color:var(--warn)}
+
+/* ---------- totals ---------- */
+.totals{display:flex;gap:26px;flex-wrap:wrap;padding:13px 16px;border-top:1px solid var(--line);background:var(--raised)}
+.totals div{display:flex;flex-direction:column;gap:1px}
+.totals dt,.totals .k{font-family:Archivo;font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.totals .v{font-family:"IBM Plex Mono";font-size:16px;font-weight:500;font-variant-numeric:tabular-nums}
+
+/* ---------- forms ---------- */
+label{display:flex;flex-direction:column;gap:5px;font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+input,select,textarea{
+  font-family:"IBM Plex Sans";font-size:14px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line-strong);border-radius:7px;padding:8px 10px;width:100%;
+}
+input[type=number]{font-family:"IBM Plex Mono";font-variant-numeric:tabular-nums}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.filters label{flex:1 1 150px}
+
+/* ---------- sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,18,14,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:620px){.scrim{align-items:center}}
+.sheet{
+  background:var(--surface);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;
+  border-radius:14px 14px 0 0;box-shadow:var(--shadow);
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+}
+@media(min-width:620px){.sheet{border-radius:14px}}
+.sheet h2{font-size:16px;margin-bottom:3px}
+.sheet .hint{color:var(--muted);font-size:12.5px;margin:0 0 15px}
+.sheet form{display:flex;flex-direction:column;gap:12px}
+.sheet .acts{display:flex;gap:9px;justify-content:flex-end;margin-top:4px}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{
+  flex:1 1 auto;appearance:none;cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);
+  color:var(--muted);font-family:Archivo;font-weight:600;font-size:11.5px;letter-spacing:.03em;
+  padding:8px 6px;border-radius:7px;white-space:nowrap;
+}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.calc{font-family:"IBM Plex Mono";font-size:12.5px;color:var(--muted);background:var(--raised);border-radius:7px;padding:8px 10px}
+.calc b{color:var(--ink);font-weight:600}
+
+/* reserved vs free */
+.bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:5px;max-width:160px}
+.bar i{display:block;height:100%}
+.bar .r{background:var(--crit)}
+.bar .f{background:var(--ok)}
+.v-resv{color:var(--crit);font-weight:600}
+.v-free{color:var(--ok);font-weight:600}
+.legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:11px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.legend b{display:inline-flex;align-items:center;gap:6px;font-weight:500;color:var(--ink)}
+.dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+.dot-r{background:var(--crit)} .dot-f{background:var(--ok)}
+.gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ground);z-index:100}
+.gatebox{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+  padding:28px 26px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:13px}
+.gatebox b{font-family:Archivo;font-weight:700;font-size:15px;letter-spacing:.06em;color:var(--accent)}
+.gatebox h1{font-family:Archivo;font-size:22px;font-weight:600;margin:-8px 0 6px}
+.gatemsg{color:var(--crit);font-size:12.5px;margin:0;min-height:1em}
+.gatebox button{margin-top:6px;padding:10px}
+.busy{font-family:Archivo;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.who{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.empty{padding:34px 18px;text-align:center;color:var(--muted)}
+.empty b{display:block;font-family:Archivo;font-size:14px;color:var(--ink);margin-bottom:4px}
+.note{color:var(--muted);font-size:12px;padding:11px 16px;border-top:1px solid var(--line);line-height:1.55}
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  background:var(--ink);color:var(--ground);padding:9px 16px;border-radius:8px;z-index:70;
+  font-family:Archivo;font-weight:600;font-size:13px;box-shadow:var(--shadow);
+}
+@media(prefers-reduced-motion:no-preference){.toast{animation:pop .2s ease-out}}
+@keyframes pop{from{opacity:0;transform:translate(-50%,8px)}}
+</style>
+<style>html,body{margin:0}:root{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<script>
+/* ===================================================================
+   ΣΥΜΠΛΗΡΩΣΕ ΕΔΩ τα δύο στοιχεία από το Supabase:
+   Settings -> Data API -> Project URL και anon public key
+   =================================================================== */
+window.AGRINNERA_CONFIG = {
+  url: "https://gyelvbcytckwpjecrcnr.supabase.co",
+  key: "sb_publishable_ppPc2hczmLvetudEKTCjDw_QvJHydT1"
+};
+</script>
+
+
+<div id="app" hidden>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><b>AGRINNERA</b><span>Απόθεμα</span></div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-tab="stock" aria-selected="true">Απόθεμα</button>
+      <button class="tab" role="tab" data-tab="moves" aria-selected="false">Κινήσεις<span class="cnt" id="cnt-moves"></span></button>
+      <button class="tab" role="tab" data-tab="resv" aria-selected="false">Δεσμεύσεις<span class="cnt" id="cnt-resv"></span></button>
+      <button class="tab" role="tab" data-tab="orders" aria-selected="false">Παραγγελίες<span class="cnt" id="cnt-orders"></span></button>
+      <button class="tab" role="tab" data-tab="batches" aria-selected="false">Παρτίδες<span class="cnt" id="cnt-batches"></span></button>
+      <button class="tab" role="tab" data-tab="products" aria-selected="false">Προϊόντα</button>
+    </nav>
+    <select id="coFilter" class="cosel" aria-label="Εταιρεία">
+      <option value="">Όλες οι εταιρείες</option>
+      <option value="AGRINERRA">AGRINERRA</option>
+      <option value="INNERA">INNERA</option>
+    </select>
+    <span id="busy" class="busy" hidden>συγχρονισμός…</span>
+    <button class="btn btn-sm" id="btnRefresh" title="Ξαναφέρνει τα δεδομένα από τη βάση">Ανανέωση</button>
+    <button class="btn btn-sm" id="btnExport" title="Κατεβάζει όλα τα δεδομένα σε αρχείο">Αντίγραφο</button>
+    <span id="who" class="who"></span>
+    <button class="btn btn-sm btn-ghost" id="btnLogout" title="Αποσύνδεση">Έξοδος</button>
+    <button class="btn btn-primary" id="newMove">+ Κίνηση</button>
+  </div>
+</header>
+
+<main>
+  <section id="tab-stock" class="stack">
+    <div id="alerts"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Τρέχον απόθεμα</h2>
+        <span class="sub" id="stockAsOf"></span>
+        <button class="btn btn-sm" id="newOrderTop">+ Παραγγελία Γερμανίας</button>
+      </div>
+      <div class="legend">
+        <b><span class="dot dot-r"></span>Δεσμευμένο</b> κρατημένο για συγκεκριμένο πελάτη, δεν φεύγει αλλού
+        <b><span class="dot dot-f"></span>Διαθέσιμο</b> ελεύθερο να πουληθεί σε οποιονδήποτε
+        <span style="margin-left:auto">Ποσότητες σε παλέτες και τεμάχια</span>
+      </div>
+      <div class="tw"><table id="stockTable">
+        <thead><tr>
+          <th>Προϊόν</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th>
+          <th>Ημέρες κάλυψης</th><th>Σημείο αναπαρ.</th><th>Αξία</th><th>Κατάσταση</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="totals" id="stockTotals"></div>
+      <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας.</p>
+    </div>
+  </section>
+
+  <section id="tab-moves" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Κινήσεις αποθέματος</h2>
+        <span class="sub">Κάθε παραλαβή, πώληση και απογραφή</span>
+        <button class="btn btn-sm" id="btnCsv">Εξαγωγή CSV</button>
+        <button class="btn btn-sm btn-primary" id="newMove2">+ Νέα κίνηση</button>
+      </div>
+      <div class="panel-head" style="border-bottom:1px solid var(--line)">
+        <div class="filters" style="width:100%">
+          <label>Προϊόν<select id="fProduct"><option value="">Όλα</option></select></label>
+          <label>Τύπος<select id="fType"><option value="">Όλοι</option></select></label>
+          <label>Από<input type="date" id="fFrom"></label>
+          <label>Έως<input type="date" id="fTo"></label>
+          <button class="btn btn-sm" id="fClear">Καθαρισμός</button>
+        </div>
+      </div>
+      <div class="tw"><table id="moveTable">
+        <thead><tr>
+          <th>Ημ/νία</th><th>Τύπος</th><th>Προϊόν</th><th>Εταιρεία</th><th>Ποσότητα</th>
+          <th>Παρτίδα</th><th>Πελάτης / Παραστατικό</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="totals" id="moveTotals"></div>
+    </div>
+  </section>
+
+  <section id="tab-resv" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Δεσμεύσεις πελατών</h2>
+        <span class="sub">Εμπόρευμα που βρίσκεται στην αποθήκη αλλά είναι κρατημένο</span>
+        <button class="btn btn-sm btn-primary" id="newResv">+ Νέα δέσμευση</button>
+      </div>
+      <div class="tw"><table id="resvTable">
+        <thead><tr>
+          <th>Πελάτης</th><th>Προϊόν</th><th>Εταιρεία</th><th>Ποσότητα</th>
+          <th>Παρτίδα</th><th>Κρατείται έως</th><th>Κατάσταση</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="totals" id="resvTotals"></div>
+      <p class="note">Οι δεσμεύσεις γίνονται σε <b>ολόκληρες παλέτες</b>. Τα τεμάχια ανά παλέτα ορίζονται ανά προϊόν στην καρτέλα Προϊόντα· μόνο για προϊόντα χωρίς ορισμένη παλέτα ζητούνται τεμάχια. Η δέσμευση δεν μειώνει το φυσικό απόθεμα — το εμπόρευμα είναι ακόμα στην αποθήκη. Μειώνει το διαθέσιμο, ώστε να μην το υποσχεθείς σε δεύτερο πελάτη. Όταν φύγει πραγματικά, πάτα «Αποστολή» και γράφεται η πώληση με κλείσιμο της δέσμευσης.</p>
+    </div>
+  </section>
+
+  <section id="tab-orders" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Παραγγελίες προς Γερμανία</h2>
+        <span class="sub">Ό,τι είναι καθ' οδόν και δεν έχει μπει ακόμα στο απόθεμα</span>
+        <button class="btn btn-sm btn-primary" id="newOrder">+ Παραγγελία</button>
+      </div>
+      <div class="tw"><table id="orderTable">
+        <thead><tr>
+          <th>Παραγγελία</th><th>Προϊόν</th><th>Ποσότητα</th><th>Άφιξη</th>
+          <th>Αξία</th><th>Κατάσταση</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="totals" id="orderTotals"></div>
+      <p class="note">Όταν φτάσει το φορτίο πατάς «Παραλαβή» και καταχωρείς παρτίδα και ανάλωση κατά προτίμηση πριν. Η παραγγελία κλείνει και δημιουργείται αυτόματα κίνηση εισαγωγής.</p>
+    </div>
+  </section>
+
+  <section id="tab-batches" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Παρτίδες και λήξεις</h2>
+        <span class="sub">Ιχνηλασιμότητα ανά παρτίδα, με σειρά λήξης</span>
+      </div>
+      <div class="tw"><table id="batchTable">
+        <thead><tr>
+          <th>Παρτίδα</th><th>Προϊόν</th><th>Εταιρεία</th><th>Υπόλοιπο</th>
+          <th>Ανάλωση πριν</th><th>Απομένουν</th><th>Πελάτες</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note">Ο κανονισμός 183/2005 για την υγιεινή των ζωοτροφών ζητά ιχνηλασιμότητα ενός βήματος πίσω και ενός μπροστά. Η στήλη «Πελάτες» δείχνει σε ποιον έχει φύγει κάθε παρτίδα, ώστε σε τυχόν ανάκληση να ξέρεις ποιον να ειδοποιήσεις.</p>
+    </div>
+  </section>
+
+  <section id="tab-products" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Προϊόντα</h2>
+        <span class="sub">Συσκευασία, χρόνος παράδοσης και μηνιαία ζήτηση από το demand plan</span>
+      </div>
+      <div class="tw"><table id="prodTable">
+        <thead><tr>
+          <th>Προϊόν</th><th>Τεμάχια ανά παλέτα</th><th>Τιμή ανά τεμάχιο</th>
+          <th>Παράδοση (εβδ.)</th><th>Ζήτηση τεμ./μήνα</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note">Όλες οι ποσότητες του συστήματος είναι σε τεμάχια· η παλέτα προκύπτει από τα τεμάχια ανά παλέτα. Η μηνιαία ζήτηση είναι το ετήσιο σύνολο του demand plan διά 12. Όταν ξαναϋπολογίσεις το πλάνο, ενημέρωσέ τη εδώ και τα σημεία αναπαραγγελίας προσαρμόζονται μόνα τους.</p>
+    </div>
+  </section>
+</main>
+
+</div>
+
+<div id="gate" class="gate" hidden>
+  <form id="gateForm" class="gatebox">
+    <b>AGRINNERA</b>
+    <h1>Απόθεμα</h1>
+    <p id="gateMsg" class="gatemsg"></p>
+    <label>Email<input type="email" id="gateEmail" autocomplete="username" required></label>
+    <label>Κωδικός<input type="password" id="gatePass" autocomplete="current-password" required></label>
+    <button type="submit" class="btn btn-primary" id="gateBtn">Σύνδεση</button>
+  </form>
+</div>
+
+<div id="modal"></div>
+
+<script>
+(function(){
+"use strict";
+
+var DB=null, READY=false, CANWRITE=true;
+var products=[], movements=[], orders=[], customers=[], reservations=[];
+var CO="";
+var COMPANIES=["AGRINERRA","INNERA"];
+var MOVE_TYPES=[
+  {k:"ΠΑΡΑΛΑΒΗ",  sign:1,  cls:"p-in",  hint:"Άφιξη εμπορεύματος από Γερμανία"},
+  {k:"ΠΩΛΗΣΗ",    sign:-1, cls:"p-out", hint:"Έξοδος προς πελάτη"},
+  {k:"ΕΠΙΣΤΡΟΦΗ", sign:1,  cls:"p-in",  hint:"Επιστροφή από πελάτη"},
+  {k:"ΚΑΤΑΣΤΡΟΦΗ",sign:-1, cls:"p-out", hint:"Ληγμένο, σκισμένο ή αλλοιωμένο"},
+  {k:"ΑΠΟΓΡΑΦΗ",  sign:0,  cls:"p-adj", hint:"Διόρθωση μετά από φυσική καταμέτρηση"}
+];
+function typeOf(k){ for(var i=0;i<MOVE_TYPES.length;i++) if(MOVE_TYPES[i].k===k) return MOVE_TYPES[i]; return MOVE_TYPES[1]; }
+
+/* ---------- formatting ---------- */
+var NF=new Intl.NumberFormat("el-GR",{maximumFractionDigits:0});
+var NF1=new Intl.NumberFormat("el-GR",{maximumFractionDigits:1});
+function n(v){ return NF.format(Math.round(v||0)); }
+function n1(v){ v=v||0; return NF1.format(Math.round(v*10)/10); }
+function eur(v){ return NF.format(Math.round(v||0))+" €"; }
+function today(){ var d=new Date(); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
+function p2(x){ return x<10?"0"+x:""+x; }
+function greekDate(iso){
+  if(!iso) return "—";
+  var p=String(iso).split("-"); if(p.length<3) return iso;
+  return p[2]+"/"+p[1]+"/"+p[0].slice(2);
+}
+function daysBetween(iso){
+  if(!iso) return null;
+  var a=new Date(iso+"T00:00:00"), b=new Date(today()+"T00:00:00");
+  if(isNaN(a)) return null;
+  return Math.round((a-b)/86400000);
+}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c];}); }
+function uid(pfx){ return pfx+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,6); }
+
+/* ---------- derived ---------- */
+/* Η βασική μονάδα παντού είναι το ΤΕΜΑΧΙΟ. Η παλέτα είναι πολλαπλάσιό του. */
+function perPallet(p){ return (p&&p.bags_pallet)?p.bags_pallet:0; }
+function pcs(v){ v=Math.round((v||0)*100)/100; return n(v)+" τεμ."; }
+function palText(p,v){
+  var pp=perPallet(p); if(!pp||!v) return "";
+  var sign=v<0?-1:1; v=Math.abs(v);
+  var full=Math.floor(v/pp+1e-9), rest=Math.round((v-full*pp)*100)/100;
+  var out=[];
+  if(full) out.push((sign<0?"-":"")+full+(full===1?" παλέτα":" παλέτες"));
+  if(rest) out.push((full?"":(sign<0?"-":""))+n(rest)+" τεμ.");
+  return out.join(" + ");
+}
+function qty(p,v){ return palText(p,v)||pcs(v); }
+function inScope(o){ return !CO || (o.owner||"")===CO; }
+function findOrder(id){ for(var i=0;i<orders.length;i++) if(orders[i].id===id) return orders[i]; return null; }
+function prod(id){ for(var i=0;i<products.length;i++) if(products[i].id===id) return products[i]; return null; }
+function custName(id){ for(var i=0;i<customers.length;i++) if(customers[i].id===id) return customers[i].name; return id||""; }
+
+function stockOf(pid){
+  var s=0;
+  for(var i=0;i<movements.length;i++) if(movements[i].product===pid && inScope(movements[i])) s+=(movements[i].qty_kg||0);
+  return s;
+}
+function transitOf(pid){
+  var s=0;
+  for(var i=0;i<orders.length;i++){ var o=orders[i];
+    if(o.product===pid && o.status!=="ΠΑΡΕΛΗΦΘΗ" && inScope(o)) s+=(o.qty_kg||0); }
+  return s;
+}
+function activeResv(){
+  return reservations.filter(function(r){ return r.status!=="ΕΚΤΕΛΕΣΤΗΚΕ" && r.status!=="ΑΚΥΡΩΘΗΚΕ" && inScope(r); });
+}
+function reservedOf(pid,batch){
+  var s=0, list=activeResv();
+  for(var i=0;i<list.length;i++){
+    var r=list[i]; if(r.product!==pid) continue;
+    if(batch!==undefined && (r.batch||"")!==batch) continue;
+    s+=(r.qty_kg||0);
+  }
+  return s;
+}
+function metrics(p){
+  var stock=stockOf(p.id), transit=transitOf(p.id), reserved=reservedOf(p.id);
+  var free=stock-reserved;
+  var daily=(p.monthly_kg||0)/30.44;
+  var leadDays=(p.lead_weeks||4)*7;
+  var rop=daily*leadDays*1.3;
+  var cover=daily>0?free/daily:null;
+  var status="ok", label="Επαρκές";
+  if(daily<=0){ status=stock>0?"ok":"idle"; label=stock>0?"Χωρίς πλάνο":"Χωρίς πλάνο"; }
+  else if(free<=0){ status="crit"; label=stock>0?"Όλο δεσμευμένο":"Εξαντλήθηκε"; }
+  else if(free+transit<rop){ status="crit"; label="Παράγγειλε τώρα"; }
+  else if(free<rop){ status="warn"; label="Καλύπτεται καθ' οδόν"; }
+  return {stock:stock,transit:transit,reserved:reserved,free:free,daily:daily,rop:rop,cover:cover,
+          status:status,label:label,value:stock*(p.price_eur_kg||0), leadDays:leadDays};
+}
+function batches(){
+  var map={};
+  for(var i=0;i<movements.length;i++){
+    var m=movements[i]; if(!m.batch||!inScope(m)) continue;
+    var key=m.product+"|"+m.batch;
+    if(!map[key]) map[key]={product:m.product,batch:m.batch,owner:m.owner||"",inKg:0,balance:0,best_before:"",first:"",buyers:{}};
+    var b=map[key];
+    b.balance+=(m.qty_kg||0);
+    if((m.qty_kg||0)>0){
+      b.inKg+=m.qty_kg;
+      if(!b.first||m.date<b.first) b.first=m.date;
+      if(m.best_before && (!b.best_before||m.best_before<b.best_before)) b.best_before=m.best_before;
+    } else if(m.party){ b.buyers[m.party]=true; }
+  }
+  var out=[];
+  for(var k in map) if(map.hasOwnProperty(k)) out.push(map[k]);
+  out.sort(function(a,b){
+    var x=a.best_before||"9999", y=b.best_before||"9999";
+    return x<y?-1:x>y?1:0;
+  });
+  return out;
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){
+  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts();
+  var open=orders.filter(function(o){return o.status!=="ΠΑΡΕΛΗΦΘΗ";}).length;
+  document.getElementById("cnt-moves").textContent=movements.length?movements.length:"";
+  document.getElementById("cnt-orders").textContent=open?open:"";
+  var exp=batches().filter(function(b){var d=daysBetween(b.best_before); return b.balance>0.5 && d!==null && d<90;}).length;
+  document.getElementById("cnt-batches").textContent=exp?exp:"";
+  var ar=activeResv().length;
+  document.getElementById("cnt-resv").textContent=ar?ar:"";
+}
+
+function renderAlerts(){
+  var host=document.getElementById("alerts"), rows=[];
+  products.forEach(function(p){
+    var m=metrics(p);
+    if(m.status==="crit"){
+      var reason = m.stock<=0 ? "μηδενικό απόθεμα"
+                 : (m.free<=0 ? "όλο το απόθεμα είναι δεσμευμένο"
+                 : "το διαθέσιμο είναι κάτω από το σημείο αναπαραγγελίας");
+      rows.push({sev:"crit",txt:"<b>"+esc(p.name)+"</b> — "+reason,
+        why:"διαθέσιμα "+qty(p,m.free)+", χρειάζονται "+qty(p,m.rop)});
+    } else if(m.status==="warn"){
+      rows.push({sev:"warn",txt:"<b>"+esc(p.name)+"</b> — καλύπτεται από παραγγελία καθ' οδόν",
+        why:"αναμένονται "+qty(p,m.transit)});
+    }
+  });
+  batches().forEach(function(b){
+    if(b.balance<=0.5) return;
+    var d=daysBetween(b.best_before); if(d===null||d>=90) return;
+    var p=prod(b.product); if(!p) return;
+    rows.push({sev:d<0?"crit":"warn",
+      txt:"<b>"+esc(p.name)+"</b> — παρτίδα "+esc(b.batch)+(d<0?" έχει λήξει":" λήγει σύντομα"),
+      why:qty(prod(b.product),b.balance)+", ανάλωση πριν "+greekDate(b.best_before)});
+  });
+  if(!rows.length){
+    host.innerHTML='<div class="alerts"><div class="alert"><span class="sev sev-warn" style="background:var(--ok-soft);color:var(--ok)">Εντάξει</span>'+
+      '<span>Κανένα προϊόν κάτω από το σημείο αναπαραγγελίας και καμία παρτίδα κοντά στη λήξη.</span></div></div>';
+    return;
+  }
+  rows.sort(function(a,b){ return (a.sev==="crit"?0:1)-(b.sev==="crit"?0:1); });
+  host.innerHTML='<div class="alerts">'+rows.map(function(r){
+    return '<div class="alert"><span class="sev sev-'+r.sev+'">'+(r.sev==="crit"?"Επείγον":"Προσοχή")+'</span>'+
+           '<span>'+r.txt+'</span><span class="why num">'+esc(r.why)+'</span></div>';
+  }).join("")+'</div>';
+}
+
+function renderStock(){
+  var tb=document.querySelector("#stockTable tbody");
+  if(!products.length){ tb.innerHTML='<tr><td colspan="9"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
+  var tv=0,tk=0,tt=0,tr=0,tp=0;
+  tb.innerHTML=products.map(function(p){
+    var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tr+=m.reserved;
+    if(perPallet(p)) tp+=m.stock/perPallet(p);
+    var pp=perPallet(p);
+    return '<tr>'+
+      '<td class="stripe s-'+m.status+'"><span class="pname">'+esc(p.name)+'</span><span class="pcode">'+esc(p.code||p.id)+'</span>'+bar(m)+'</td>'+
+      '<td><span class="num">'+qty(p,m.stock)+'</span>'+(pp?'<span class="sec">'+pcs(m.stock)+'</span>':'')+'</td>'+
+      '<td><span class="num v-resv">'+(m.reserved>0?qty(p,m.reserved):'—')+'</span>'+
+        (m.reserved>0&&pp?'<span class="sec v-resv">'+pcs(m.reserved)+'</span>':'')+'</td>'+
+      '<td><span class="num v-free">'+qty(p,m.free)+'</span>'+
+        (pp?'<span class="sec v-free">'+pcs(m.free)+'</span>':'')+'</td>'+
+      '<td class="num">'+(m.transit>0?qty(p,m.transit):'—')+'</td>'+
+      '<td><span class="num">'+(m.cover===null?'—':n(m.cover)+' ημ.')+'</span>'+
+        (m.cover!==null?'<span class="sec">παράδοση '+m.leadDays+' ημ.</span>':'')+'</td>'+
+      '<td class="num">'+(m.daily>0?qty(p,m.rop):'—')+'</td>'+
+      '<td class="num">'+eur(m.value)+'</td>'+
+      '<td><span class="pill p-'+m.status+'">'+m.label+'</span></td>'+
+    '</tr>';
+  }).join("");
+  document.getElementById("stockTotals").innerHTML=
+    tile("Συνολικά τεμάχια",n(tk))+tile("Δεσμευμένα",n(tr))+tile("Διαθέσιμα",n(tk-tr))+
+    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Αξία αποθέματος",eur(tv));
+  document.getElementById("stockAsOf").textContent=
+    (CO?CO+" · ":"")+"Όπως είναι σήμερα, "+greekDate(today());
+}
+function bar(m){
+  var tot=m.stock; if(tot<=0) return "";
+  var r=Math.max(0,Math.min(100,m.reserved/tot*100));
+  return '<span class="bar" title="δεσμευμένο '+n(m.reserved)+' / ελεύθερο '+n(m.free)+'">'+
+    '<i class="r" style="width:'+r+'%"></i><i class="f" style="width:'+(100-r)+'%"></i></span>';
+}
+function tile(k,v){ return '<div><span class="k">'+esc(k)+'</span><span class="v">'+esc(v)+'</span></div>'; }
+
+function filteredMoves(){
+  var fp=document.getElementById("fProduct").value,
+      ft=document.getElementById("fType").value,
+      f1=document.getElementById("fFrom").value,
+      f2=document.getElementById("fTo").value;
+  return movements.filter(function(m){
+    if(!inScope(m)) return false;
+    if(fp&&m.product!==fp) return false;
+    if(ft&&m.type!==ft) return false;
+    if(f1&&m.date<f1) return false;
+    if(f2&&m.date>f2) return false;
+    return true;
+  }).sort(function(a,b){
+    if(a.date!==b.date) return a.date<b.date?1:-1;
+    return (b.ts||0)-(a.ts||0);
+  });
+}
+function renderMoves(){
+  var tb=document.querySelector("#moveTable tbody"), list=filteredMoves();
+  if(!list.length){ tb.innerHTML='<tr><td colspan="8"><div class="empty"><b>Καμία κίνηση</b>Πάτα «Νέα κίνηση» για να καταχωρήσεις παραλαβή ή πώληση.</div></td></tr>';
+    document.getElementById("moveTotals").innerHTML=""; return; }
+  tb.innerHTML=list.map(function(m){
+    var p=prod(m.product), t=typeOf(m.type);
+    var q=m.qty_kg||0;
+    return '<tr>'+
+      '<td class="num">'+greekDate(m.date)+'</td>'+
+      '<td><span class="pill '+t.cls+'">'+esc(m.type)+'</span></td>'+
+      '<td>'+esc(p?p.name:m.product)+'</td>'+
+      '<td><span class="co">'+esc(m.owner||"—")+'</span></td>'+
+      '<td style="color:'+(q<0?"var(--crit)":"var(--ok)")+'"><span class="num">'+(q>0?"+":"")+pcs(q)+'</span>'+
+        (palText(p,Math.abs(q))?'<span class="sec" style="color:inherit;opacity:.75">'+palText(p,Math.abs(q))+'</span>':'')+'</td>'+
+      '<td class="num">'+(m.batch?esc(m.batch):"—")+'</td>'+
+      '<td style="text-align:right">'+esc(m.party?custName(m.party):"")+
+        (m.ref?'<span class="sec">'+esc(m.ref)+'</span>':"")+
+        (m.note?'<span class="sec">'+esc(m.note)+'</span>':"")+'</td>'+
+      '<td><button class="btn btn-sm btn-ghost" data-del-move="'+esc(m.id)+'" title="Διαγραφή">✕</button></td>'+
+    '</tr>';
+  }).join("");
+  var inKg=0,outKg=0;
+  list.forEach(function(m){ var q=m.qty_kg||0; if(q>0) inKg+=q; else outKg-=q; });
+  document.getElementById("moveTotals").innerHTML=
+    tile("Κινήσεις",list.length+"")+tile("Εισαγωγές",n(inKg)+" τεμ.")+tile("Εξαγωγές",n(outKg)+" τεμ.");
+}
+
+function renderOrders(){
+  var tb=document.querySelector("#orderTable tbody");
+  var list=orders.filter(inScope).sort(function(a,b){
+    var ao=a.status==="ΠΑΡΕΛΗΦΘΗ"?1:0, bo=b.status==="ΠΑΡΕΛΗΦΘΗ"?1:0;
+    if(ao!==bo) return ao-bo;
+    return (a.eta||"")<(b.eta||"")?-1:1;
+  });
+  if(!list.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παραγγελία</b>Καταχώρησε τι έχεις παραγγείλει στη Γερμανία για να μετράει ως καθ'+"'"+' οδόν.</div></td></tr>';
+    document.getElementById("orderTotals").innerHTML=""; return; }
+  var openKg=0,openEur=0,pallets=0;
+  tb.innerHTML=list.map(function(o){
+    var p=prod(o.product), done=o.status==="ΠΑΡΕΛΗΦΘΗ";
+    var d=daysBetween(o.eta);
+    if(!done){ openKg+=o.qty_kg||0; openEur+=(o.qty_kg||0)*((p&&p.price_eur_kg)||0); pallets+=(o.pallets||0); }
+    return '<tr>'+
+      '<td><span class="pname">'+esc(o.ref||o.id)+'</span><span class="pcode">παραγγέλθηκε '+greekDate(o.date)+'</span></td>'+
+      '<td style="text-align:right">'+esc(p?p.name:o.product)+'</td>'+
+      '<td><span class="num">'+qty(p,o.qty_kg)+'</span><span class="sec">'+pcs(o.qty_kg)+'</span></td>'+
+      '<td><span class="num">'+greekDate(o.eta)+'</span>'+
+        (!done&&d!==null?'<span class="sec">'+(d<0?"καθυστερεί "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
+      '<td class="num">'+eur((o.qty_kg||0)*((p&&p.price_eur_kg)||0))+'</td>'+
+      '<td><span class="pill '+(done?"p-ok":(d!==null&&d<0?"p-crit":"p-warn"))+'">'+(done?"Παρελήφθη":"Αναμένεται")+'</span></td>'+
+      '<td style="white-space:nowrap">'+
+        (done?'':'<button class="btn btn-sm" data-receive="'+esc(o.id)+'">Παραλαβή</button> ')+
+        '<button class="btn btn-sm" data-edit-order="'+esc(o.id)+'" title="Τροποποίηση">✎</button> '+
+        '<button class="btn btn-sm btn-ghost" data-del-order="'+esc(o.id)+'" title="Διαγραφή">✕</button>'+
+      '</td>'+
+    '</tr>';
+  }).join("");
+  document.getElementById("orderTotals").innerHTML=
+    tile("Καθ' οδόν",n(openKg)+" τεμ.")+tile("Αξία",eur(openEur))+
+    tile("Παλέτες",n(pallets)+" / 24 ανά φορτηγό");
+}
+
+function renderBatches(){
+  var tb=document.querySelector("#batchTable tbody"), list=batches();
+  if(!list.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παρτίδα</b>Οι παρτίδες δημιουργούνται μόλις καταχωρήσεις παραλαβή με αριθμό παρτίδας.</div></td></tr>'; return; }
+  tb.innerHTML=list.map(function(b){
+    var p=prod(b.product), d=daysBetween(b.best_before), br=reservedOf(b.product,b.batch);
+    var sev=b.balance<=0.5?"idle":(d===null?"idle":(d<0?"crit":(d<90?"warn":"ok")));
+    var buyers=Object.keys(b.buyers).map(custName);
+    return '<tr>'+
+      '<td class="stripe s-'+sev+'"><span class="pname num">'+esc(b.batch)+'</span><span class="pcode">παραλήφθηκε '+greekDate(b.first)+'</span></td>'+
+      '<td style="text-align:right">'+esc(p?p.name:b.product)+'</td>'+
+      '<td><span class="co">'+esc(b.owner||"—")+'</span></td>'+
+      '<td><span class="num" style="font-weight:600">'+qty(p,b.balance)+'</span>'+
+        '<span class="sec">'+pcs(b.balance)+'</span>'+
+        (br>0?'<span class="sec v-resv">δεσμ. '+qty(p,br)+'</span>':'')+'</td>'+
+      '<td class="num">'+greekDate(b.best_before)+'</td>'+
+      '<td>'+(d===null?'—':'<span class="pill p-'+(sev==="idle"?"idle":sev)+'">'+(d<0?"έληξε":n(d)+" ημ.")+'</span>')+'</td>'+
+      '<td style="text-align:right;font-size:12.5px;color:var(--muted)">'+(buyers.length?esc(buyers.join(", ")):"—")+'</td>'+
+    '</tr>';
+  }).join("");
+}
+
+function renderReservations(){
+  var tb=document.querySelector("#resvTable tbody");
+  var list=reservations.filter(inScope).sort(function(a,b){
+    var ao=(a.status&&a.status!=="ΕΝΕΡΓΗ")?1:0, bo=(b.status&&b.status!=="ΕΝΕΡΓΗ")?1:0;
+    if(ao!==bo) return ao-bo;
+    return (a.until||"9999")<(b.until||"9999")?-1:1;
+  });
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="8"><div class="empty"><b>Καμία δέσμευση</b>Όλο το απόθεμα είναι ελεύθερο προς πώληση.</div></td></tr>';
+    document.getElementById("resvTotals").innerHTML=""; return;
+  }
+  var actKg=0, actN=0, actPal=0;
+  tb.innerHTML=list.map(function(r){
+    var p=prod(r.product), open=(!r.status||r.status==="ΕΝΕΡΓΗ");
+    var d=r.until?daysBetween(r.until):null;
+    if(open){ actKg+=r.qty_kg||0; actN++; var pp=perPallet(p); if(pp) actPal+=(r.qty_kg||0)/pp; }
+    var pill = !open ? (r.status==="ΕΚΤΕΛΕΣΤΗΚΕ"?'<span class="pill p-ok">Απεστάλη</span>':'<span class="pill p-idle">Ακυρώθηκε</span>')
+             : (d!==null&&d<0 ? '<span class="pill p-warn">Έληξε η κράτηση</span>' : '<span class="pill p-crit">Δεσμευμένο</span>');
+    return '<tr>'+
+      '<td class="stripe '+(open?"s-crit":"s-idle")+'"><span class="pname">'+esc(custName(r.customer))+'</span>'+
+        (r.note?'<span class="pcode">'+esc(r.note)+'</span>':'')+'</td>'+
+      '<td style="text-align:right">'+esc(p?p.name:r.product)+'</td>'+
+      '<td><span class="co">'+esc(r.owner||"—")+'</span></td>'+
+      '<td>'+(function(){
+          return '<span class="num '+(open?"v-resv":"")+'" style="font-weight:600">'+esc(qty(p,r.qty_kg))+'</span>'+
+                 '<span class="sec">'+pcs(r.qty_kg)+'</span>';
+        })()+'</td>'+
+      '<td class="num">'+(r.batch?esc(r.batch):"όλες")+'</td>'+
+      '<td><span class="num">'+(r.until?greekDate(r.until):"—")+'</span>'+
+        (open&&d!==null?'<span class="sec">'+(d<0?"πέρασε "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
+      '<td>'+pill+'</td>'+
+      '<td>'+(open?'<button class="btn btn-sm" data-ship="'+esc(r.id)+'">Αποστολή</button> '+
+                    '<button class="btn btn-sm btn-ghost" data-cancel-resv="'+esc(r.id)+'">✕</button>'
+                  :'<button class="btn btn-sm btn-ghost" data-del-resv="'+esc(r.id)+'">✕</button>')+'</td>'+
+    '</tr>';
+  }).join("");
+  document.getElementById("resvTotals").innerHTML=
+    tile("Ενεργές δεσμεύσεις",actN+"")+tile("Δεσμευμένα τεμάχια",n(actKg))+tile("Παλέτες",n1(actPal));
+}
+
+function renderProducts(){
+  var tb=document.querySelector("#prodTable tbody");
+  tb.innerHTML=products.map(function(p){
+    return '<tr>'+
+      '<td><span class="pname">'+esc(p.name)+'</span><span class="pcode">'+esc(p.code||p.id)+'</span></td>'+
+      '<td class="num">'+(p.bags_pallet?n(p.bags_pallet):
+          (p.no_pallet?'<span style="color:var(--faint)">δεν παλετοποιείται</span>'
+                      :'<span style="color:var(--crit)">δεν ορίστηκε</span>'))+'</td>'+
+      '<td class="num">'+n1(p.price_eur_kg)+' €</td>'+
+      '<td class="num">'+n(p.lead_weeks)+'</td>'+
+      '<td class="num">'+n(p.monthly_kg)+'</td>'+
+      '<td><button class="btn btn-sm" data-edit-prod="'+esc(p.id)+'">Επεξεργασία</button></td>'+
+    '</tr>';
+  }).join("");
+  // keep the movement filter list in sync
+  var sel=document.getElementById("fProduct"), cur=sel.value;
+  sel.innerHTML='<option value="">Όλα</option>'+products.map(function(p){
+    return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'; }).join("");
+  sel.value=cur;
+}
+
+/* ---------- modal ---------- */
+function closeModal(){ document.getElementById("modal").innerHTML=""; }
+function openModal(html){
+  var m=document.getElementById("modal");
+  m.innerHTML='<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true">'+html+'</div></div>';
+  document.getElementById("scrim").addEventListener("mousedown",function(e){ if(e.target.id==="scrim") closeModal(); });
+  var first=m.querySelector("input,select,textarea,button"); if(first) first.focus();
+}
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeModal(); });
+
+function toast(msg){
+  var t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(function(){ t.remove(); },2400);
+}
+function productOptions(sel){
+  return products.map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(p.id===sel?" selected":"")+'>'+esc(p.name)+'</option>'; }).join("");
+}
+
+/* ----- movement form ----- */
+function moveForm(preset){
+  preset=preset||{};
+  var html='<h2>Νέα κίνηση</h2><p class="hint">Ποσότητα σε παλέτες και τεμάχια, πάντα θετική. Ο τύπος αποφασίζει αν προστίθεται ή αφαιρείται.</p>'+
+  '<form id="mf">'+
+    '<label>Τύπος<div class="seg" id="mfType">'+MOVE_TYPES.map(function(t,i){
+      return '<button type="button" data-t="'+t.k+'" aria-pressed="'+(t.k===(preset.type||"ΠΩΛΗΣΗ")?"true":"false")+'">'+t.k+'</button>'; }).join("")+'</div></label>'+
+    '<p class="calc" id="mfHint"></p>'+
+    '<div class="grid3">'+
+      '<label>Ημερομηνία<input type="date" id="mfDate" value="'+today()+'" required></label>'+
+      '<label>Εταιρεία<select id="mfOwner" required>'+COMPANIES.map(function(c){
+        return '<option value="'+c+'"'+(c===(preset.owner||CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Προϊόν<select id="mfProduct" required>'+productOptions(preset.product)+'</select></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label id="mfQtyLabel">Παλέτες<input type="number" id="mfPal" min="0" step="1" value=""></label>'+
+      '<label id="mfPcsLabel">+ Τεμάχια<input type="number" id="mfQty" min="0" step="1" value="'+(preset.qty||"")+'"></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Παρτίδα<input type="text" id="mfBatch" list="batchList" value="'+esc(preset.batch||"")+'" placeholder="π.χ. L-2026-114"></label>'+
+      '<label>&nbsp;<span style="display:block"></span></label>'+
+    '</div>'+
+    '<datalist id="batchList"></datalist>'+
+    '<div class="grid2" id="mfBBRow">'+
+      '<label>Ανάλωση κατά προτίμηση πριν<input type="date" id="mfBB"></label>'+
+      '<label id="mfPartyLabel">Πελάτης<select id="mfParty"><option value="">—</option>'+
+        customers.map(function(c){ return '<option value="'+esc(c.id)+'"'+(c.id===preset.party?" selected":"")+'>'+esc(c.name)+'</option>'; }).join("")+
+      '</select></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Παραστατικό<input type="text" id="mfRef" placeholder="Αρ. τιμολογίου ή δελτίου"></label>'+
+      '<label>Σημείωση<input type="text" id="mfNote" placeholder="Προαιρετικά"></label>'+
+    '</div>'+
+    '<p class="calc" id="mfCalc"></p>'+
+    '<div class="acts"><button type="button" class="btn" id="mfCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Καταχώρηση</button></div>'+
+  '</form>';
+  openModal(html);
+
+  var cur=preset.type||"ΠΩΛΗΣΗ";
+  var seg=document.getElementById("mfType");
+  seg.addEventListener("click",function(e){
+    var b=e.target.closest("button[data-t]"); if(!b) return;
+    cur=b.getAttribute("data-t");
+    Array.prototype.forEach.call(seg.querySelectorAll("button"),function(x){
+      x.setAttribute("aria-pressed", x===b?"true":"false"); });
+    syncType();
+  });
+  ["mfProduct","mfPal","mfQty","mfBatch"].forEach(function(id){
+    document.getElementById(id).addEventListener("input",syncCalc);
+  });
+  document.getElementById("mfProduct").addEventListener("change",syncBatchList);
+
+  function wantedPcs(){
+    var p=prod(document.getElementById("mfProduct").value), pp=perPallet(p);
+    var pal=parseFloat(document.getElementById("mfPal").value)||0;
+    var t=parseFloat(document.getElementById("mfQty").value)||0;
+    return pal*pp + t;
+  }
+  function syncType(){
+    var t=typeOf(cur);
+    document.getElementById("mfHint").textContent=t.hint;
+    var isIn=(t.sign>0), isCount=(cur==="ΑΠΟΓΡΑΦΗ");
+    document.getElementById("mfBBRow").querySelector("#mfBB").parentNode.hidden=!isIn;
+    document.getElementById("mfPartyLabel").hidden=(cur==="ΠΑΡΑΛΑΒΗ"||isCount);
+    document.getElementById("mfQtyLabel").firstChild.textContent=isCount?"Παλέτες που μέτρησες":"Παλέτες";
+    document.getElementById("mfPcsLabel").firstChild.textContent=isCount?"+ Τεμάχια που μέτρησες":"+ Τεμάχια";
+    syncCalc();
+  }
+  function syncBatchList(){
+    var pid=document.getElementById("mfProduct").value;
+    document.getElementById("batchList").innerHTML=batches().filter(function(b){
+      return b.product===pid && b.balance>0.5;
+    }).map(function(b){
+      return '<option value="'+esc(b.batch)+'">υπόλοιπο '+n(b.balance)+' τεμ., λήξη '+greekDate(b.best_before)+'</option>';
+    }).join("");
+    syncCalc();
+  }
+  function syncCalc(){
+    var pid=document.getElementById("mfProduct").value, p=prod(pid);
+    if(!p){ document.getElementById("mfCalc").innerHTML=""; return; }
+    var pp=perPallet(p), q=wantedPcs(), cs=stockOf(pid), t=typeOf(cur), out="";
+    document.getElementById("mfQtyLabel").hidden=!pp;
+    if(pp) out="1 παλέτα = <b>"+pp+" τεμάχια</b><br>";
+    if(cur==="ΑΠΟΓΡΑΦΗ"){
+      var diff=q-cs;
+      out+="Καταγεγραμμένα <b>"+qty(p,cs)+"</b> · μέτρησες <b>"+qty(p,q)+"</b> · διαφορά <b>"+
+        (diff>0?"+":"")+pcs(diff)+"</b>";
+    } else {
+      var nw=cs+t.sign*q;
+      out+="Απόθεμα <b>"+qty(p,cs)+"</b> → <b>"+qty(p,nw)+"</b>";
+      if(nw<0) out+=' · <span style="color:var(--crit)">προσοχή, βγαίνει αρνητικό</span>';
+    }
+    document.getElementById("mfCalc").innerHTML=out;
+  }
+  syncType(); syncBatchList();
+
+  document.getElementById("mfCancel").onclick=closeModal;
+  document.getElementById("mf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var pid=document.getElementById("mfProduct").value;
+    var q=wantedPcs();
+    var t=typeOf(cur), qtyv;
+    if(cur==="ΑΠΟΓΡΑΦΗ") qtyv=q-stockOf(pid); else qtyv=t.sign*Math.abs(q);
+    if(cur!=="ΑΠΟΓΡΑΦΗ" && q<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
+    var rec={
+      id:uid("m"), ts:Date.now(),
+      date:document.getElementById("mfDate").value||today(),
+      type:cur, product:pid, owner:document.getElementById("mfOwner").value, qty_kg:Math.round(qtyv*100)/100,
+      batch:document.getElementById("mfBatch").value.trim(),
+      best_before:document.getElementById("mfBB").value||"",
+      party:document.getElementById("mfParty").value||"",
+      ref:document.getElementById("mfRef").value.trim(),
+      note:document.getElementById("mfNote").value.trim()
+    };
+    if(cur==="ΑΠΟΓΡΑΦΗ") rec.note=("καταμετρήθηκαν "+pcs(q)+(rec.note?" · "+rec.note:""));
+    if(preset.resvId){
+      var rr=null; for(var z=0;z<reservations.length;z++) if(reservations[z].id===preset.resvId) rr=reservations[z];
+      save("movements",rec,function(){
+        if(!rr){ toast("Η κίνηση καταχωρήθηκε"); closeModal(); return; }
+        var u={}; for(var k in rr) u[k]=rr[k]; u.status="ΕΚΤΕΛΕΣΤΗΚΕ"; u.shipped=rec.date;
+        save("reservations",u,function(){ toast("Στάλθηκε και η δέσμευση έκλεισε"); closeModal(); });
+      });
+    } else {
+      save("movements",rec,function(){ toast("Η κίνηση καταχωρήθηκε"); closeModal(); });
+    }
+  });
+}
+
+/* ----- reservation form ----- */
+function resvForm(){
+  openModal('<h2>Νέα δέσμευση</h2><p class="hint">Κρατάει εμπόρευμα για συγκεκριμένο πελάτη. Το φυσικό απόθεμα δεν αλλάζει, το διαθέσιμο μειώνεται.</p>'+
+  '<form id="rvf">'+
+    '<div class="grid3">'+
+      '<label>Ημερομηνία<input type="date" id="rvDate" value="'+today()+'" required></label>'+
+      '<label>Εταιρεία<select id="rvOwner" required>'+COMPANIES.map(function(c){
+        return '<option value="'+c+'"'+(c===(CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Κρατείται έως<input type="date" id="rvUntil"></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Πελάτης<select id="rvCustomer" required><option value="">Διάλεξε πελάτη</option>'+
+        customers.map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("")+'</select></label>'+
+      '<label>Προϊόν<select id="rvProduct" required>'+productOptions()+'</select></label>'+
+    '</div>'+
+    '<div class="grid2" id="rvPalRow">'+
+      '<label>Παλέτες<input type="number" id="rvPal" min="1" step="1" value="1"></label>'+
+      '<label>Παρτίδα (προαιρετικά)<input type="text" id="rvBatch" list="rvBatchList" placeholder="όλες"></label>'+
+    '</div>'+
+    '<div class="grid2" id="rvKgRow" hidden>'+
+      '<label>Τεμάχια<input type="number" id="rvQty" min="0" step="1"></label>'+
+      '<label>Παρτίδα<input type="text" id="rvBatch2" list="rvBatchList" placeholder="όλες"></label>'+
+    '</div>'+
+    '<datalist id="rvBatchList"></datalist>'+
+    '<label>Σημείωση<input type="text" id="rvNote" placeholder="π.χ. συμφωνία τιμής, αναμονή πληρωμής"></label>'+
+    '<p class="calc" id="rvCalc"></p>'+
+    '<div class="acts"><button type="button" class="btn" id="rvCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Δέσμευση</button></div>'+
+  '</form>');
+  function wantedKg(){
+    var p=prod(document.getElementById("rvProduct").value), pp=perPallet(p);
+    if(!pp) return parseFloat(document.getElementById("rvQty").value)||0;
+    return (parseFloat(document.getElementById("rvPal").value)||0)*pp;
+  }
+  function sync(){
+    var pid=document.getElementById("rvProduct").value, p=prod(pid);
+    if(!p){ return; }
+    var pk=perPallet(p);
+    document.getElementById("rvPalRow").hidden=!pk;
+    document.getElementById("rvKgRow").hidden=!!pk;
+    document.getElementById("rvBatchList").innerHTML=batches().filter(function(b){
+      return b.product===pid && b.balance>0.5; }).map(function(b){
+      return '<option value="'+esc(b.batch)+'">υπόλοιπο '+n(b.balance)+'</option>'; }).join("");
+    var m=metrics(p), q=wantedKg(), after=m.free-q;
+    var out;
+    if(pk){
+      var freePal=Math.floor(m.free/pk+1e-9);
+      out="1 παλέτα = <b>"+pk+" τεμάχια</b> · ελεύθερες <b>"+freePal+(freePal===1?" παλέτα":" παλέτες")+"</b>";
+      if(q>0){
+        var pal=Math.round(q/pk);
+        out+="<br>Δεσμεύεις <b>"+pal+(pal===1?" παλέτα":" παλέτες")+"</b> → μένουν <b>"+
+             Math.floor(after/pk+1e-9)+"</b> ελεύθερες";
+      }
+    } else {
+      out='Δεν έχεις ορίσει τεμάχια ανά παλέτα γι\' αυτό το προϊόν — συμπλήρωσέ το στα Προϊόντα για να δεσμεύεις σε παλέτες.';
+      out+="<br>Διαθέσιμα <b>"+pcs(m.free)+"</b>";
+      if(q>0) out+=" → μετά <b>"+pcs(after)+"</b>";
+    }
+    if(q>0&&after<0) out+=' · <span style="color:var(--crit)">δεσμεύεις περισσότερα από όσα έχεις ελεύθερα</span>';
+    document.getElementById("rvCalc").innerHTML=out;
+  }
+  ["rvProduct","rvPal","rvQty","rvOwner"].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.addEventListener("input",sync); });
+  sync();
+  document.getElementById("rvCancel").onclick=closeModal;
+  document.getElementById("rvf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var pid=document.getElementById("rvProduct").value, p=prod(pid), pk=perPallet(p);
+    var rec={ id:uid("r"), date:document.getElementById("rvDate").value,
+      owner:document.getElementById("rvOwner").value,
+      until:document.getElementById("rvUntil").value||"",
+      customer:document.getElementById("rvCustomer").value,
+      product:pid,
+      qty_kg:Math.round(wantedKg()*100)/100,
+      pallets: pk?(parseFloat(document.getElementById("rvPal").value)||0):0,
+      bags: 0,
+      batch:(pk?document.getElementById("rvBatch").value:document.getElementById("rvBatch2").value).trim(),
+      note:document.getElementById("rvNote").value.trim(), status:"ΕΝΕΡΓΗ" };
+    if(rec.qty_kg<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
+    save("reservations",rec,function(){ toast("Η ποσότητα δεσμεύτηκε"); closeModal(); });
+  });
+}
+function shipResv(id){
+  var r=null; for(var i=0;i<reservations.length;i++) if(reservations[i].id===id) r=reservations[i];
+  if(!r) return;
+  moveForm({type:"ΠΩΛΗΣΗ", product:r.product, owner:r.owner, qty:r.qty_kg,
+            party:r.customer, batch:r.batch, resvId:r.id});
+}
+function cancelResv(id){
+  var r=null; for(var i=0;i<reservations.length;i++) if(reservations[i].id===id) r=reservations[i];
+  if(!r) return;
+  openModal('<h2>Άρση δέσμευσης</h2><p class="hint">Η ποσότητα θα ξαναγίνει διαθέσιμη προς πώληση.</p>'+
+    '<div class="acts"><button class="btn" id="crNo">Ακύρωση</button>'+
+    '<button class="btn btn-primary" id="crYes">Άρση</button></div>');
+  document.getElementById("crNo").onclick=closeModal;
+  document.getElementById("crYes").onclick=function(){
+    var u={}; for(var k in r) u[k]=r[k]; u.status="ΑΚΥΡΩΘΗΚΕ";
+    save("reservations",u,function(){ toast("Η δέσμευση ήρθη"); closeModal(); });
+  };
+}
+
+/* ----- order form ----- */
+function orderForm(oid){
+  var o=oid?findOrder(oid):null, done=!!(o&&o.status==="ΠΑΡΕΛΗΦΘΗ");
+  var hint = o ? (done
+      ? 'Η παραγγελία έχει παραληφθεί. Η αλλαγή ποσότητας εδώ ΔΕΝ αλλάζει το απόθεμα — αυτό προκύπτει από την κίνηση παραλαβής, που τη διορθώνεις στις Κινήσεις.'
+      : 'Τροποποίηση παραγγελίας που αναμένεται.')
+    : 'Μετράει ως καθ' + String.fromCharCode(39) + ' οδόν μέχρι να την παραλάβεις.';
+  openModal('<h2>'+(o?'Τροποποίηση παραγγελίας':'Νέα παραγγελία προς Γερμανία')+'</h2>'+
+  '<p class="hint">'+hint+'</p>'+
+  '<form id="of">'+
+    '<div class="grid2">'+
+      '<label>Ημερομηνία παραγγελίας<input type="date" id="ofDate" value="'+((o&&o.date)||today())+'" required></label>'+
+      '<label>Εκτιμώμενη άφιξη<input type="date" id="ofEta" value="'+((o&&o.eta)||"")+'" required></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Εταιρεία<select id="ofOwner" required>'+COMPANIES.map(function(c){
+        return '<option value="'+c+'"'+(c===((o&&o.owner)||CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Προϊόν<select id="ofProduct" required>'+productOptions(o&&o.product)+'</select></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Παλέτες<input type="number" id="ofPal" min="0" step="1" value="'+((o&&o.pallets)||"")+'"></label>'+
+      '<label>+ Τεμάχια<input type="number" id="ofQty" min="0" step="1" value="" placeholder="0"></label>'+
+    '</div>'+
+    '<label>Αριθμός παραγγελίας<input type="text" id="ofRef" value="'+esc((o&&o.ref)||"")+'" placeholder="π.χ. PO-2026-07"></label>'+
+    '<p class="calc" id="ofCalc"></p>'+
+    '<div class="acts"><button type="button" class="btn" id="ofCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">'+(o?'Αποθήκευση':'Καταχώρηση')+'</button></div>'+
+  '</form>');
+  function ofPcs(){
+    var p=prod(document.getElementById("ofProduct").value), pp=perPallet(p);
+    return (parseFloat(document.getElementById("ofPal").value)||0)*pp +
+           (parseFloat(document.getElementById("ofQty").value)||0);
+  }
+  function calc(){
+    var p=prod(document.getElementById("ofProduct").value);
+    if(!p){ document.getElementById("ofCalc").innerHTML=""; return; }
+    var pp=perPallet(p), q=ofPcs();
+    var txt = pp ? "1 παλέτα = <b>"+pp+" τεμάχια</b>" : "Δεν έχεις ορίσει τεμάχια ανά παλέτα — συμπλήρωσε μόνο τεμάχια";
+    if(q>0) txt+=" · σύνολο <b>"+qty(p,q)+"</b> · αξία <b>"+eur(q*(p.price_eur_kg||0))+"</b>";
+    document.getElementById("ofCalc").innerHTML=txt;
+  }
+  ["ofProduct","ofQty","ofPal"].forEach(function(id){ document.getElementById(id).addEventListener("input",calc); });
+  calc();
+  document.getElementById("ofCancel").onclick=closeModal;
+  document.getElementById("of").addEventListener("submit",function(e){
+    e.preventDefault();
+    var rec={};
+    if(o){ for(var k in o) rec[k]=o[k]; }
+    rec.id = o?o.id:uid("o");
+    rec.owner=document.getElementById("ofOwner").value;
+    rec.date=document.getElementById("ofDate").value;
+    rec.eta=document.getElementById("ofEta").value;
+    rec.product=document.getElementById("ofProduct").value;
+    rec.qty_kg=ofPcs();
+    rec.pallets=parseFloat(document.getElementById("ofPal").value)||0;
+    if(rec.qty_kg<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
+    rec.ref=document.getElementById("ofRef").value.trim();
+    rec.status = o?(o.status||"ΑΝΑΜΕΝΕΤΑΙ"):"ΑΝΑΜΕΝΕΤΑΙ";
+    save("orders",rec,function(){ toast(o?"Η παραγγελία ενημερώθηκε":"Η παραγγελία καταχωρήθηκε"); closeModal(); });
+  });
+}
+
+/* ----- receive an order ----- */
+function receiveForm(oid){
+  var o=null; for(var i=0;i<orders.length;i++) if(orders[i].id===oid) o=orders[i];
+  if(!o) return;
+  var p=prod(o.product);
+  openModal('<h2>Παραλαβή φορτίου</h2><p class="hint">'+esc(p?p.name:o.product)+' · '+qty(p,o.qty_kg)+'</p>'+
+  '<form id="rf">'+
+    '<div class="grid2">'+
+      '<label>Ημερομηνία παραλαβής<input type="date" id="rfDate" value="'+today()+'" required></label>'+
+      '<label>Τεμάχια που παρελήφθησαν<input type="number" id="rfQty" value="'+(o.qty_kg||0)+'" min="0" step="1" required></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<label>Αριθμός παρτίδας<input type="text" id="rfBatch" required placeholder="από τη συσκευασία"></label>'+
+      '<label>Ανάλωση κατά προτίμηση πριν<input type="date" id="rfBB" required></label>'+
+    '</div>'+
+    '<label>Παραστατικό<input type="text" id="rfRef" value="'+esc(o.ref||"")+'"></label>'+
+    '<div class="acts"><button type="button" class="btn" id="rfCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Καταχώρηση παραλαβής</button></div>'+
+  '</form>');
+  document.getElementById("rfCancel").onclick=closeModal;
+  document.getElementById("rf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var mv={ id:uid("m"), ts:Date.now(), date:document.getElementById("rfDate").value,
+      type:"ΠΑΡΑΛΑΒΗ", product:o.product, owner:o.owner||"", order:o.id,
+      qty_kg:parseFloat(document.getElementById("rfQty").value)||0,
+      batch:document.getElementById("rfBatch").value.trim(),
+      best_before:document.getElementById("rfBB").value,
+      party:"", ref:document.getElementById("rfRef").value.trim(),
+      note:"Παραλαβή παραγγελίας "+(o.ref||o.id) };
+    save("movements",mv,function(){
+      var upd={}; for(var k in o) upd[k]=o[k]; upd.status="ΠΑΡΕΛΗΦΘΗ"; upd.received=mv.date;
+      save("orders",upd,function(){ toast("Το φορτίο μπήκε στο απόθεμα"); closeModal(); });
+    });
+  });
+}
+
+/* ----- product form ----- */
+function prodForm(pid){
+  var p=prod(pid); if(!p) return;
+  openModal('<h2>'+esc(p.name)+'</h2><p class="hint">'+esc(p.code||p.id)+'</p>'+
+  '<form id="pf">'+
+    '<div class="grid2">'+
+      '<label>Τεμάχια ανά παλέτα<input type="number" id="pfBags" step="1" min="0" value="'+(p.bags_pallet||"")+'" placeholder="π.χ. 36"></label>'+
+      '<label>Τιμή αγοράς (€ ανά τεμάχιο)<input type="number" id="pfPrice" step="0.01" min="0" value="'+(p.price_eur_kg||0)+'"></label>'+
+    '</div>'+
+    '<label style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;font-family:\'IBM Plex Sans\'">'+
+      '<input type="checkbox" id="pfNoPal" style="width:auto"'+(p.no_pallet?" checked":"")+'>'+
+      'Δεν παλετοποιείται — μετριέται μόνο σε τεμάχια'+
+    '</label>'+
+    '<div class="grid2">'+
+      '<label>Χρόνος παράδοσης (εβδομάδες)<input type="number" id="pfLead" step="1" min="0" value="'+(p.lead_weeks||4)+'"></label>'+
+      '<label>Ζήτηση (τεμάχια/μήνα)<input type="number" id="pfMonthly" step="1" min="0" value="'+(p.monthly_kg||0)+'"></label>'+
+    '</div>'+
+    '<p class="calc">Με αυτά τα νούμερα το σημείο αναπαραγγελίας είναι <b id="pfRop"></b>.</p>'+
+    '<div class="acts"><button type="button" class="btn" id="pfCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Αποθήκευση</button></div>'+
+  '</form>');
+  function calc(){
+    var lead=(parseFloat(document.getElementById("pfLead").value)||0)*7;
+    var mo=parseFloat(document.getElementById("pfMonthly").value)||0;
+    document.getElementById("pfRop").textContent=n(mo/30.44*lead*1.3)+" τεμάχια";
+  }
+  ["pfLead","pfMonthly","pfBags"].forEach(function(id){ document.getElementById(id).addEventListener("input",calc); });
+  document.getElementById("pfNoPal").addEventListener("change",function(){
+    document.getElementById("pfBags").disabled=this.checked;
+    if(this.checked) document.getElementById("pfBags").value="";
+  });
+  document.getElementById("pfBags").disabled=!!p.no_pallet;
+  calc();
+  document.getElementById("pfCancel").onclick=closeModal;
+  document.getElementById("pf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var rec={}; for(var k in p) rec[k]=p[k];
+    rec.no_pallet=document.getElementById("pfNoPal").checked;
+    rec.bags_pallet=rec.no_pallet?0:(parseFloat(document.getElementById("pfBags").value)||0);
+    rec.price_eur_kg=parseFloat(document.getElementById("pfPrice").value)||0;
+    rec.lead_weeks=parseFloat(document.getElementById("pfLead").value)||0;
+    rec.monthly_kg=parseFloat(document.getElementById("pfMonthly").value)||0;
+    save("products",rec,function(){ toast("Αποθηκεύτηκε"); closeModal(); });
+  });
+}
+
+/* ---------- Supabase: σύνδεση, δεδομένα ---------- */
+var SB={ url:(window.AGRINNERA_CONFIG||{}).url||"", key:(window.AGRINNERA_CONFIG||{}).key||"",
+         token:null, refresh:null, email:"" };
+var TOKKEY="agrinnera_sb_session";
+var CHR34=String.fromCharCode(34), CRLF=String.fromCharCode(13,10), BOM=String.fromCharCode(65279);
+
+function sbStore(){
+  try{ localStorage.setItem(TOKKEY, JSON.stringify({t:SB.token,r:SB.refresh,e:SB.email})); }catch(e){}
+}
+function sbLoadSession(){
+  try{ var j=JSON.parse(localStorage.getItem(TOKKEY)||"null");
+       if(j&&j.t){ SB.token=j.t; SB.refresh=j.r; SB.email=j.e||""; return true; } }catch(e){}
+  return false;
+}
+function sbClear(){ SB.token=null; SB.refresh=null; try{ localStorage.removeItem(TOKKEY); }catch(e){} }
+
+function sbAuth(grant,body){
+  return fetch(SB.url+"/auth/v1/token?grant_type="+grant,{
+    method:"POST", headers:{apikey:SB.key,"Content-Type":"application/json"},
+    body:JSON.stringify(body)
+  }).then(function(r){
+    if(!r.ok) return r.json().then(function(j){ throw new Error((j&&(j.error_description||j.msg))||"auth"); });
+    return r.json();
+  }).then(function(j){
+    SB.token=j.access_token; SB.refresh=j.refresh_token;
+    if(j.user&&j.user.email) SB.email=j.user.email;
+    sbStore(); return j;
+  });
+}
+function sbLogin(email,pass){ SB.email=email; return sbAuth("password",{email:email,password:pass}); }
+/* Μία μόνο ανανέωση τη φορά: το Supabase ακυρώνει το refresh token μόλις
+   χρησιμοποιηθεί, οπότε οι παράλληλες κλήσεις περιμένουν την ίδια ανανέωση. */
+var REFRESHING=null;
+function sbRefreshToken(){
+  if(!REFRESHING){
+    REFRESHING=sbAuth("refresh_token",{refresh_token:SB.refresh})
+      .then(function(j){ REFRESHING=null; return j; },
+            function(e){ REFRESHING=null; throw e; });
+  }
+  return REFRESHING;
+}
+
+function sbFetch(path,opts,retried){
+  opts=opts||{};
+  var h={apikey:SB.key};
+  if(SB.token) h.Authorization="Bearer "+SB.token;   /* τα νέα sb_publishable κλειδιά δεν είναι JWT */
+  if(opts.body) h["Content-Type"]="application/json";
+  if(opts.extra) for(var k in opts.extra) h[k]=opts.extra[k];
+  return fetch(SB.url+path,{method:opts.method||"GET",headers:h,body:opts.body}).then(function(r){
+    if(r.status===401 && !retried && SB.refresh)
+      return sbRefreshToken().then(function(){ return sbFetch(path,opts,true); });
+    if(!r.ok) return r.text().then(function(t){ throw new Error(t||("HTTP "+r.status)); });
+    if(r.status===204) return null;
+    return r.text().then(function(t){ return t?JSON.parse(t):null; });
+  });
+}
+
+/* ---------- αντιστοίχιση πεδίων βάσης <-> εφαρμογής ---------- */
+function d2s(v){ return v===null||v===undefined?"":v; }   // date/text από βάση
+function s2d(v){ return (v===""||v===undefined)?null:v; } // date προς βάση
+
+var MAP={
+  products:{
+    inn:function(r){ return {id:r.id,code:d2s(r.code),name:r.name,bags_pallet:r.bags_pallet||0,
+      no_pallet:!!r.no_pallet,price_eur_kg:Number(r.price_eur)||0,lead_weeks:r.lead_weeks||4,
+      monthly_kg:Number(r.monthly_pcs)||0,moq:Number(r.moq_pcs)||0}; },
+    out:function(o){ return {id:o.id,code:o.code||null,name:o.name,bags_pallet:o.bags_pallet||0,
+      no_pallet:!!o.no_pallet,price_eur:o.price_eur_kg||0,lead_weeks:o.lead_weeks||4,
+      monthly_pcs:o.monthly_kg||0,moq_pcs:o.moq||0}; }
+  },
+  customers:{ inn:function(r){ return {id:r.id,name:r.name}; },
+              out:function(o){ return {id:o.id,name:o.name}; } },
+  movements:{
+    inn:function(r){ return {id:r.id,ts:Number(r.ts)||0,date:d2s(r.date),type:r.type,product:d2s(r.product),
+      owner:d2s(r.owner),qty_kg:Number(r.qty)||0,batch:d2s(r.batch),best_before:d2s(r.best_before),
+      party:d2s(r.party),ref:d2s(r.ref),note:d2s(r.note),order:d2s(r.order_id)}; },
+    out:function(o){ return {id:o.id,ts:o.ts||Date.now(),date:o.date,type:o.type,product:o.product,
+      owner:o.owner||null,qty:o.qty_kg||0,batch:o.batch||null,best_before:s2d(o.best_before),
+      party:s2d(o.party),ref:o.ref||null,note:o.note||null,order_id:s2d(o.order)}; }
+  },
+  orders:{
+    inn:function(r){ return {id:r.id,date:d2s(r.date),eta:d2s(r.eta),product:d2s(r.product),owner:d2s(r.owner),
+      qty_kg:Number(r.qty)||0,pallets:Number(r.pallets)||0,ref:d2s(r.ref),status:r.status||"ΑΝΑΜΕΝΕΤΑΙ",
+      received:d2s(r.received)}; },
+    out:function(o){ return {id:o.id,date:s2d(o.date),eta:s2d(o.eta),product:o.product,owner:o.owner||null,
+      qty:o.qty_kg||0,pallets:o.pallets||0,ref:o.ref||null,status:o.status||"ΑΝΑΜΕΝΕΤΑΙ",
+      received:s2d(o.received)}; }
+  },
+  reservations:{
+    inn:function(r){ return {id:r.id,date:d2s(r.date),until:d2s(r.until),customer:d2s(r.customer),
+      product:d2s(r.product),owner:d2s(r.owner),qty_kg:Number(r.qty)||0,pallets:Number(r.pallets)||0,
+      bags:0,batch:d2s(r.batch),note:d2s(r.note),status:r.status||"ΕΝΕΡΓΗ",shipped:d2s(r.shipped)}; },
+    out:function(o){ return {id:o.id,date:s2d(o.date),until:s2d(o.until),customer:o.customer,
+      product:o.product,owner:o.owner||null,qty:o.qty_kg||0,pallets:o.pallets||0,batch:o.batch||null,
+      note:o.note||null,status:o.status||"ΕΝΕΡΓΗ",shipped:s2d(o.shipped)}; }
+  }
+};
+function bucket(c){
+  return c==="products"?products:c==="customers"?customers:
+         c==="movements"?movements:c==="orders"?orders:reservations;
+}
+function idxOf(arr,id){ for(var i=0;i<arr.length;i++) if(arr[i].id===id) return i; return -1; }
+
+var BUSY=0;
+function busy(on){
+  BUSY+=on?1:-1; if(BUSY<0) BUSY=0;
+  var el=document.getElementById("busy"); if(el) el.hidden=(BUSY===0);
+}
+
+function loadAll(){
+  busy(true);
+  return Promise.all([
+    sbFetch("/rest/v1/products?select=*&order=id"),
+    sbFetch("/rest/v1/customers?select=*&order=id"),
+    sbFetch("/rest/v1/movements?select=*"),
+    sbFetch("/rest/v1/orders?select=*"),
+    sbFetch("/rest/v1/reservations?select=*")
+  ]).then(function(res){
+    var names=["products","customers","movements","orders","reservations"];
+    names.forEach(function(nm,i){
+      var arr=bucket(nm); arr.length=0;
+      (res[i]||[]).forEach(function(r){ arr.push(MAP[nm].inn(r)); });
+    });
+    renderAll(); busy(false);
+  }).catch(function(e){ busy(false); toast("Δεν φορτώθηκαν τα δεδομένα"); throw e; });
+}
+
+function save(coll,rec,done){
+  busy(true);
+  sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(MAP[coll].out(rec)),
+    extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+  .then(function(){
+    var arr=bucket(coll), i=idxOf(arr,rec.id);
+    if(i>=0) arr[i]=rec; else arr.push(rec);
+    renderAll(); busy(false); if(done) done();
+  }).catch(function(e){
+    busy(false);
+    toast(String(e.message||"").indexOf("row-level")>=0 ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
+  });
+}
+function remove(coll,id){
+  busy(true);
+  sbFetch("/rest/v1/"+coll+"?id=eq."+encodeURIComponent(id),{method:"DELETE"})
+  .then(function(){
+    var arr=bucket(coll), i=idxOf(arr,id);
+    if(i>=0) arr.splice(i,1);
+    renderAll(); busy(false); toast("Διαγράφηκε");
+  }).catch(function(){ busy(false); toast("Η διαγραφή απέτυχε"); });
+}
+
+/* ---------- εξαγωγές ---------- */
+function dl(name,text,mime){
+  var b=new Blob([text],{type:mime+";charset=utf-8"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(b); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500);
+}
+function exportAll(){
+  dl("agrinnera-stock-"+today()+".json", JSON.stringify({
+    exported:new Date().toISOString(), products:products, customers:customers,
+    movements:movements, orders:orders, reservations:reservations },null,2), "application/json");
+  toast("Το αντίγραφο κατέβηκε");
+}
+function exportCSV(){
+  var head=["Ημερομηνία","Τύπος","Εταιρεία","Κωδικός","Προϊόν","Τεμάχια","Παλέτες","Παρτίδα","Ανάλωση πριν","Πελάτης","Παραστατικό","Σημείωση"];
+  var rows=movements.slice().sort(function(a,b){ return a.date<b.date?-1:1; }).map(function(m){
+    var p=prod(m.product), pp=perPallet(p);
+    return [m.date,m.type,m.owner||"",p?p.code:"",p?p.name:m.product,m.qty_kg,
+            pp?Math.round(m.qty_kg/pp*100)/100:"",m.batch||"",m.best_before||"",
+            m.party?custName(m.party):"",m.ref||"",m.note||""];
+  });
+  var csv=[head].concat(rows).map(function(r){
+    return r.map(function(c){ return CHR34+String(c).split(CHR34).join(CHR34+CHR34)+CHR34; }).join(";");
+  }).join(CRLF);
+  dl("agrinnera-kiniseis-"+today()+".csv",BOM+csv,"text/csv");
+  toast("Το CSV κατέβηκε");
+}
+
+/* ---------- events ---------- */
+document.getElementById("tabs").addEventListener("click",function(e){
+  var b=e.target.closest(".tab"); if(!b) return;
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(t){
+    var on=(t===b); t.setAttribute("aria-selected",on?"true":"false");
+    document.getElementById("tab-"+t.getAttribute("data-tab")).hidden=!on;
+  });
+});
+document.getElementById("coFilter").addEventListener("change",function(){
+  CO=this.value; renderAll();
+});
+document.getElementById("btnExport").onclick=exportAll;
+document.getElementById("btnCsv").onclick=exportCSV;
+document.getElementById("newMove").onclick=function(){ moveForm(); };
+document.getElementById("newMove2").onclick=function(){ moveForm(); };
+document.getElementById("newResv").onclick=resvForm;
+document.getElementById("newOrder").onclick=function(){ orderForm(); };
+document.getElementById("newOrderTop").onclick=function(){ orderForm(); };
+["fProduct","fType","fFrom","fTo"].forEach(function(id){
+  document.getElementById(id).addEventListener("change",renderMoves);
+});
+document.getElementById("fClear").onclick=function(){
+  ["fProduct","fType","fFrom","fTo"].forEach(function(id){ document.getElementById(id).value=""; });
+  renderMoves();
+};
+document.getElementById("fType").innerHTML='<option value="">Όλοι</option>'+
+  MOVE_TYPES.map(function(t){ return '<option value="'+t.k+'">'+t.k+'</option>'; }).join("");
+
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-del-move],[data-del-order],[data-edit-order],[data-receive],[data-edit-prod],[data-ship],[data-cancel-resv],[data-del-resv]");
+  if(!el) return;
+  if(el.hasAttribute("data-del-move")) confirmDelete("movements",el.getAttribute("data-del-move"),"αυτή την κίνηση");
+  else if(el.hasAttribute("data-del-order")) deleteOrder(el.getAttribute("data-del-order"));
+  else if(el.hasAttribute("data-edit-order")) orderForm(el.getAttribute("data-edit-order"));
+  else if(el.hasAttribute("data-del-resv")) confirmDelete("reservations",el.getAttribute("data-del-resv"),"αυτή τη δέσμευση");
+  else if(el.hasAttribute("data-ship")) shipResv(el.getAttribute("data-ship"));
+  else if(el.hasAttribute("data-cancel-resv")) cancelResv(el.getAttribute("data-cancel-resv"));
+  else if(el.hasAttribute("data-receive")) receiveForm(el.getAttribute("data-receive"));
+  else prodForm(el.getAttribute("data-edit-prod"));
+});
+function deleteOrder(oid){
+  var o=findOrder(oid); if(!o) return;
+  var linked=movements.filter(function(m){ return m.order===oid; });
+  var lk=0; linked.forEach(function(m){ lk+=(m.qty_kg||0); });
+  var p=prod(o.product);
+  var html='<h2>Διαγραφή παραγγελίας</h2>';
+  if(linked.length){
+    html+='<p class="hint">Αυτή η παραγγελία έχει παραληφθεί και έχει δημιουργήσει κίνηση εισαγωγής '+
+      qty(p,lk)+'. Αν διαγράψεις μόνο την παραγγελία, το εμπόρευμα παραμένει στο απόθεμα.</p>'+
+      '<div class="acts" style="flex-wrap:wrap">'+
+      '<button class="btn" id="doNo">Ακύρωση</button>'+
+      '<button class="btn" id="doOnly">Μόνο η παραγγελία</button>'+
+      '<button class="btn btn-primary" id="doBoth" style="background:var(--crit);border-color:var(--crit)">Και οι δύο</button></div>';
+  } else {
+    html+='<p class="hint">Θα διαγραφεί οριστικά. Δεν αναιρείται.</p>'+
+      '<div class="acts"><button class="btn" id="doNo">Ακύρωση</button>'+
+      '<button class="btn btn-primary" id="doOnly" style="background:var(--crit);border-color:var(--crit)">Διαγραφή</button></div>';
+  }
+  openModal(html);
+  document.getElementById("doNo").onclick=closeModal;
+  document.getElementById("doOnly").onclick=function(){ remove("orders",oid); closeModal(); };
+  var both=document.getElementById("doBoth");
+  if(both) both.onclick=function(){
+    linked.forEach(function(m){ remove("movements",m.id); });
+    remove("orders",oid); closeModal();
+  };
+}
+function confirmDelete(coll,id,what){
+  openModal('<h2>Διαγραφή</h2><p class="hint">Θα διαγραφεί '+esc(what)+'. Δεν αναιρείται.</p>'+
+    '<div class="acts"><button class="btn" id="cdNo">Ακύρωση</button>'+
+    '<button class="btn btn-primary" id="cdYes" style="background:var(--crit);border-color:var(--crit)">Διαγραφή</button></div>');
+  document.getElementById("cdNo").onclick=closeModal;
+  document.getElementById("cdYes").onclick=function(){ remove(coll,id); closeModal(); };
+}
+
+/* ---------- boot: login και φόρτωση ---------- */
+function showLogin(msg){
+  document.getElementById("app").hidden=true;
+  var g=document.getElementById("gate"); g.hidden=false;
+  document.getElementById("gateMsg").textContent=msg||"";
+  var e=document.getElementById("gateEmail"); if(e) e.focus();
+}
+function showApp(){
+  document.getElementById("gate").hidden=true;
+  document.getElementById("app").hidden=false;
+  var w=document.getElementById("who"); if(w) w.textContent=SB.email||"";
+}
+document.getElementById("gateForm").addEventListener("submit",function(e){
+  e.preventDefault();
+  var btn=document.getElementById("gateBtn"); btn.disabled=true; btn.textContent="Σύνδεση…";
+  sbLogin(document.getElementById("gateEmail").value.trim(),
+          document.getElementById("gatePass").value)
+  .then(function(){ showApp(); return loadAll(); })
+  .catch(function(){ showLogin("Λάθος email ή κωδικός."); })
+  .then(function(){ btn.disabled=false; btn.textContent="Σύνδεση"; });
+});
+document.getElementById("btnLogout").onclick=function(){
+  sbClear(); location.reload();
+};
+document.getElementById("btnRefresh").onclick=function(){ loadAll(); };
+document.getElementById("btnExport").onclick=exportAll;
+document.getElementById("btnCsv").onclick=exportCSV;
+
+(function start(){
+  if(!SB.url||!SB.key){
+    showLogin("Λείπουν τα στοιχεία σύνδεσης. Άνοιξε το αρχείο και συμπλήρωσε url και key στην κορυφή.");
+    document.getElementById("gateForm").hidden=true;
+    return;
+  }
+  if(sbLoadSession()){
+    showApp();
+    loadAll().catch(function(){ sbClear(); showLogin("Η σύνδεση έληξε. Μπες ξανά."); });
+  } else showLogin("");
+  setInterval(function(){ if(SB.token && !document.hidden) loadAll().catch(function(){}); }, 90000);
+})();
+})();
+</script>
+
+</body>
+</html>
