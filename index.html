@@ -276,13 +276,13 @@ window.AGRINNERA_CONFIG = {
       </div>
       <div class="tw"><table id="stockTable">
         <thead><tr>
-          <th>Προϊόν</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th>
+          <th>Προϊόν</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th><th>Προβλεπόμενο</th>
           <th>Ημέρες κάλυψης</th><th>Σημείο αναπαρ.</th><th>Αξία</th><th>Κατάσταση</th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
       <div class="totals" id="stockTotals"></div>
-      <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας.</p>
+      <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας. Το <b>προβλεπόμενο</b> είναι ό,τι θα έχεις ελεύθερο όταν φτάσουν οι παραγγελίες: Απόθεμα − Δεσμευμένο + Καθ' οδόν.</p>
     </div>
   </section>
 
@@ -486,6 +486,7 @@ function reservedOf(pid,batch){
 function metrics(p){
   var stock=stockOf(p.id), transit=transitOf(p.id), reserved=reservedOf(p.id);
   var free=stock-reserved;
+  var forecast=free+transit;   /* Απόθεμα − Δεσμευμένο + Καθ' οδόν */
   var daily=(p.monthly_kg||0)/30.44;
   var leadDays=(p.lead_weeks||4)*7;
   var rop=daily*leadDays*1.3;
@@ -495,7 +496,7 @@ function metrics(p){
   else if(free<=0){ status="crit"; label=stock>0?"Όλο δεσμευμένο":"Εξαντλήθηκε"; }
   else if(free+transit<rop){ status="crit"; label="Παράγγειλε τώρα"; }
   else if(free<rop){ status="warn"; label="Καλύπτεται καθ' οδόν"; }
-  return {stock:stock,transit:transit,reserved:reserved,free:free,daily:daily,rop:rop,cover:cover,
+  return {stock:stock,transit:transit,reserved:reserved,free:free,forecast:forecast,daily:daily,rop:rop,cover:cover,
           status:status,label:label,value:stock*(p.price_eur_kg||0), leadDays:leadDays};
 }
 function batches(){
@@ -570,7 +571,7 @@ function renderAlerts(){
 
 function renderStock(){
   var tb=document.querySelector("#stockTable tbody");
-  if(!products.length){ tb.innerHTML='<tr><td colspan="9"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
+  if(!products.length){ tb.innerHTML='<tr><td colspan="10"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
   var tv=0,tk=0,tt=0,tr=0,tp=0;
   tb.innerHTML=products.map(function(p){
     var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tr+=m.reserved;
@@ -584,6 +585,8 @@ function renderStock(){
       '<td><span class="num v-free">'+qty(p,m.free)+'</span>'+
         (pp?'<span class="sec v-free">'+pcs(m.free)+'</span>':'')+'</td>'+
       '<td class="num">'+(m.transit>0?qty(p,m.transit):'—')+'</td>'+
+      '<td><span class="num"'+(m.forecast<0?' style="color:var(--warn)"':'')+'>'+(m.forecast?qty(p,m.forecast):'—')+'</span>'+
+        (pp&&m.forecast?'<span class="sec">'+pcs(m.forecast)+'</span>':'')+'</td>'+
       '<td><span class="num">'+(m.cover===null?'—':n(m.cover)+' ημ.')+'</span>'+
         (m.cover!==null?'<span class="sec">παράδοση '+m.leadDays+' ημ.</span>':'')+'</td>'+
       '<td class="num">'+(m.daily>0?qty(p,m.rop):'—')+'</td>'+
@@ -593,7 +596,7 @@ function renderStock(){
   }).join("");
   document.getElementById("stockTotals").innerHTML=
     tile("Συνολικά τεμάχια",n(tk))+tile("Δεσμευμένα",n(tr))+tile("Διαθέσιμα",n(tk-tr))+
-    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Αξία αποθέματος",eur(tv));
+    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Προβλεπόμενα",n(tk-tr+tt))+tile("Αξία αποθέματος",eur(tv));
   document.getElementById("stockAsOf").textContent=
     (CO?CO+" · ":"")+"Όπως είναι σήμερα, "+greekDate(today());
 }
