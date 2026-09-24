@@ -312,6 +312,40 @@ tr.sug-off td{opacity:.5}
 .empty{padding:34px 18px;text-align:center;color:var(--muted)}
 .empty b{display:block;font-family:Archivo;font-size:14px;color:var(--ink);margin-bottom:4px}
 .note{color:var(--muted);font-size:12px;padding:11px 16px;border-top:1px solid var(--line);line-height:1.55}
+
+/* ---------- δελτίο αποστολής (οθόνη + εκτύπωση) ---------- */
+#noteView{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--ground);padding:0 12px 40px}
+.note-bar{position:sticky;top:0;display:flex;gap:9px;justify-content:flex-end;align-items:center;max-width:210mm;margin:0 auto;padding:12px 0;background:var(--ground)}
+.note-bar span{margin-right:auto;color:var(--muted);font-size:12.5px}
+.paper{background:#fff;color:#111;max-width:210mm;margin:0 auto;padding:16mm 14mm;border:1px solid var(--line);border-radius:4px;
+  box-shadow:var(--shadow);font-family:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;font-size:12.5px;line-height:1.45}
+.paper h1{font-family:Archivo,"IBM Plex Sans",sans-serif;font-size:21px;letter-spacing:.02em;margin:0 0 6px;text-transform:uppercase}
+.pp-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:12px}
+.pp-co{font-family:Archivo,sans-serif;font-weight:700;font-size:19px;letter-spacing:.04em}
+.pp-k{display:block;font-family:Archivo,sans-serif;font-weight:600;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:#555}
+.pp-title{text-align:right}
+.pp-title div{margin-top:2px}
+.pp-parties{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 16px}
+.pp-parties div{border:1px solid #bbb;border-radius:3px;padding:8px 10px;min-height:52px}
+.pp-parties b{font-size:14px}
+.pp-lines{width:100%;min-width:0;border-collapse:collapse}
+.pp-lines th{color:#555;font-size:9.5px;border-bottom:1.5px solid #111;padding:6px 6px;text-align:left}
+.pp-lines td{padding:7px 6px;border-bottom:1px solid #ccc;text-align:left;vertical-align:top}
+.pp-lines .r{text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-lines tfoot td{border-bottom:0;border-top:1.5px solid #111;font-weight:600}
+.pp-lines tbody tr:hover{background:transparent}
+.pp-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:46px}
+.pp-sign div{border-top:1px solid #111;padding-top:5px;text-align:center;color:#555;font-size:11px}
+@media(max-width:640px){.paper{padding:18px 14px}.pp-head{flex-direction:column}.pp-title{text-align:left}.pp-lines{font-size:11.5px}}
+@page{size:A4;margin:12mm}
+@media print{
+  body{background:#fff}
+  body > *:not(#noteView){display:none!important}
+  #noteView{position:static;overflow:visible;background:#fff;padding:0}
+  .note-bar{display:none!important}
+  .paper{border:0;box-shadow:none;border-radius:0;margin:0;max-width:none;padding:0}
+  .pp-lines tr{break-inside:avoid}
+}
 .toast{
   position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));
   background:var(--ink);color:var(--ground);padding:9px 16px;border-radius:8px;z-index:70;
@@ -879,7 +913,8 @@ function renderReservations(){
       '<td>'+pill+'</td>'+
       '<td>'+(open?'<button class="btn btn-sm" data-ship="'+esc(r.id)+'">Αποστολή</button> '+
                     '<button class="btn btn-sm btn-ghost" data-cancel-resv="'+esc(r.id)+'">✕</button>'
-                  :'<button class="btn btn-sm btn-ghost" data-del-resv="'+esc(r.id)+'">✕</button>')+'</td>'+
+                  :(r.status==="ΕΚΤΕΛΕΣΤΗΚΕ"?'<button class="btn btn-sm" data-note="'+esc(r.id)+'" title="Εκτυπώσιμο δελτίο αποστολής">Δελτίο</button> ':'')+
+                   '<button class="btn btn-sm btn-ghost" data-del-resv="'+esc(r.id)+'">✕</button>')+'</td>'+
     '</tr>';
   }).join("");
   document.getElementById("resvTotals").innerHTML=
@@ -1308,6 +1343,75 @@ function cancelResv(id){
     save("reservations",u,function(){ toast("Η δέσμευση ήρθη"); closeModal(); });
   };
 }
+
+/* ----- δελτίο αποστολής ----- */
+/* Μία αποστολή = όσες δεσμεύσεις του ίδιου πελάτη και της ίδιας εταιρείας στάλθηκαν την ίδια μέρα.
+   Ποσότητες και παρτίδες παίρνονται από τις πωλήσεις που γράφτηκαν εκείνη τη μέρα (ό,τι πραγματικά
+   έφυγε)· αν δεν βρεθεί πώληση για ένα προϊόν, από τη δέσμευση. */
+function shipmentOf(r){
+  var group=r.shipped ? reservations.filter(function(x){
+    return x.status==="ΕΚΤΕΛΕΣΤΗΚΕ" && x.customer===r.customer && (x.owner||"")===(r.owner||"") && x.shipped===r.shipped;
+  }) : [r];
+  var pids=[], lines=[], refs={};
+  group.forEach(function(x){ if(pids.indexOf(x.product)<0) pids.push(x.product); });
+  pids.forEach(function(pid){
+    var sales=movements.filter(function(m){
+      return m.type==="ΠΩΛΗΣΗ" && m.product===pid && m.party===r.customer &&
+             (m.owner||"")===(r.owner||"") && r.shipped && m.date===r.shipped;
+    });
+    if(sales.length) sales.forEach(function(m){
+      lines.push({product:pid,qty:Math.abs(m.qty_kg||0),batch:m.batch}); if(m.ref) refs[m.ref]=true;
+    });
+    else group.forEach(function(x){ if(x.product===pid) lines.push({product:pid,qty:x.qty_kg||0,batch:x.batch}); });
+  });
+  return {owner:r.owner||"",customer:r.customer,date:r.shipped||r.date,lines:lines,refs:Object.keys(refs)};
+}
+function showNote(rid){
+  var r=null; for(var i=0;i<reservations.length;i++) if(reservations[i].id===rid) r=reservations[i];
+  if(!r) return;
+  var s=shipmentOf(r), bb={}, totPal=0, totPcs=0;
+  batches().forEach(function(b){ bb[b.product+"|"+b.batch]=b.best_before; });
+  var rows=s.lines.map(function(l,i){
+    var p=prod(l.product), pp=perPallet(p);
+    totPcs+=l.qty; if(pp) totPal+=l.qty/pp;
+    return '<tr><td>'+(i+1)+'</td><td class="r" style="text-align:left">'+esc(p?(p.code||p.id):l.product)+'</td>'+
+      '<td>'+esc(p?p.name:l.product)+'</td><td class="r" style="text-align:left">'+esc(l.batch||"—")+'</td>'+
+      '<td class="r">'+greekDate(bb[l.product+"|"+(l.batch||"")])+'</td>'+
+      '<td class="r">'+(pp?esc(qty(p,l.qty)):"—")+'</td><td class="r">'+n(l.qty)+'</td></tr>';
+  }).join("");
+  var d=String(s.date||"").split("-"), full=d.length===3?d[2]+"/"+d[1]+"/"+d[0]:"—";
+  var v=document.createElement("div"); v.id="noteView"; v.setAttribute("role","dialog"); v.setAttribute("aria-label","Δελτίο αποστολής");
+  v.innerHTML='<div class="note-bar"><span>Προεπισκόπηση εκτύπωσης</span>'+
+      '<button type="button" class="btn" data-note-close>Κλείσιμο</button>'+
+      '<button type="button" class="btn btn-primary" data-note-print>Εκτύπωση</button></div>'+
+    '<article class="paper">'+
+      '<header class="pp-head"><div><span class="pp-k">Αποστολέας</span><div class="pp-co">'+esc(s.owner||"—")+'</div></div>'+
+        '<div class="pp-title"><h1>Δελτίο αποστολής</h1>'+
+          (s.refs.length?'<div><span class="pp-k" style="display:inline">Αρ. παραστατικού</span> <b>'+esc(s.refs.join(", "))+'</b></div>':'')+
+          '<div><span class="pp-k" style="display:inline">Ημερομηνία</span> <b>'+full+'</b></div></div></header>'+
+      '<section class="pp-parties">'+
+        '<div><span class="pp-k">Πελάτης</span><b>'+esc(custName(s.customer))+'</b></div>'+
+        '<div><span class="pp-k">Εταιρεία</span><b>'+esc(s.owner||"—")+'</b></div></section>'+
+      '<table class="pp-lines"><thead><tr><th>#</th><th>Κωδικός</th><th>Προϊόν</th><th>Παρτίδα</th>'+
+        '<th class="r">Ανάλωση πριν</th><th class="r">Παλέτες</th><th class="r">Τεμάχια</th></tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+        '<tfoot><tr><td colspan="5">Σύνολο</td><td class="r">'+(totPal?n1(totPal)+(Math.abs(totPal-1)<1e-9?" παλέτα":" παλέτες"):"—")+'</td>'+
+        '<td class="r">'+n(totPcs)+' τεμ.</td></tr></tfoot></table>'+
+      '<div class="pp-sign"><div>Παρέδωσε</div><div>Παρέλαβε</div></div>'+
+    '</article>';
+  document.body.appendChild(v);
+  var title=document.title;
+  document.title="Δελτίο αποστολής "+custName(s.customer)+" "+(s.date||"");
+  function close(){ v.remove(); document.title=title; document.removeEventListener("keydown",onKey); }
+  function onKey(e){ if(e.key==="Escape") close(); }
+  document.addEventListener("keydown",onKey);
+  v.querySelector("[data-note-close]").onclick=close;
+  v.querySelector("[data-note-print]").onclick=function(){ window.print(); };
+  v.querySelector("[data-note-print]").focus();
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-note]"); if(b) showNote(b.getAttribute("data-note"));
+});
 
 /* ----- order form ----- */
 function orderForm(oid){
