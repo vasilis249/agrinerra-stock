@@ -255,6 +255,14 @@ tr.sug-off td{opacity:.5}
   font-family:Archivo;font-weight:600;font-size:13px;box-shadow:var(--shadow);
 }
 @media(prefers-reduced-motion:no-preference){.toast{animation:pop .2s ease-out}}
+.toast-undo{display:flex;align-items:center;gap:14px;padding:6px 6px 6px 16px;overflow:hidden;max-width:calc(100vw - 24px)}
+.toast-undo ~ .toast{bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+.undo-btn{appearance:none;border:0;border-radius:6px;background:transparent;color:var(--ground);cursor:pointer;
+  font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;min-height:44px;padding:0 12px}
+.undo-btn:hover{background:rgba(127,127,127,.25)}
+.undo-bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--ground);opacity:.5;transform-origin:left}
+@media(prefers-reduced-motion:no-preference){.undo-bar{animation:undo 5s linear forwards}}
+@keyframes undo{to{transform:scaleX(0)}}
 @keyframes pop{from{opacity:0;transform:translate(-50%,8px)}}
 </style>
 <style>html,body{margin:0}:root{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -1489,6 +1497,9 @@ function loadAll(){
       var arr=bucket(nm); arr.length=0;
       (res[i]||[]).forEach(function(r){ arr.push(MAP[nm].inn(r)); });
     });
+    if(PENDING) PENDING.items.forEach(function(it){   /* ό,τι περιμένει διαγραφή δεν ξαναφαίνεται */
+      var arr=bucket(it.coll), i=idxOf(arr,it.rec.id); if(i>=0) arr.splice(i,1);
+    });
     renderAll(); busy(false);
   }).catch(function(e){ busy(false); toast("Δεν φορτώθηκαν τα δεδομένα"); throw e; });
 }
@@ -1506,15 +1517,74 @@ function save(coll,rec,done){
     toast(String(e.message||"").indexOf("row-level")>=0 ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
   });
 }
-function remove(coll,id){
-  busy(true);
-  sbFetch("/rest/v1/"+coll+"?id=eq."+encodeURIComponent(id),{method:"DELETE"})
-  .then(function(){
-    var arr=bucket(coll), i=idxOf(arr,id);
-    if(i>=0) arr.splice(i,1);
-    renderAll(); busy(false); toast("Διαγράφηκε");
-  }).catch(function(){ busy(false); toast("Η διαγραφή απέτυχε"); });
+
+/* ---------- διαγραφή με αναίρεση ---------- */
+/* Όπως στο Gmail: η εγγραφή φεύγει αμέσως από την οθόνη, αλλά η βάση ενημερώνεται μετά από
+   5 δευτερόλεπτα, εκτός αν πατήσεις «Αναίρεση». Μία εκκρεμής διαγραφή τη φορά: μια νέα
+   στέλνει αμέσως την προηγούμενη. Ό,τι εκκρεμεί στέλνεται και όταν κλείνει η σελίδα. */
+var UNDO_MS=5000, PENDING=null;
+function softDelete(items,msg){
+  commitPending();
+  items.forEach(function(it){
+    var arr=bucket(it.coll), i=idxOf(arr,it.rec.id); it.at=i; if(i>=0) arr.splice(i,1);
+  });
+  renderAll();
+  var job={items:items};
+  job.timer=setTimeout(commitPending,UNDO_MS);
+  PENDING=job;
+  undoToast(msg,function(){ undoPending(job); });
 }
+function deleteRecord(coll,id,msg){
+  var rec=bucket(coll)[idxOf(bucket(coll),id)]; if(!rec) return;
+  softDelete([{coll:coll,rec:rec}],msg);
+}
+function undoPending(job){
+  if(!job||PENDING!==job) return;
+  clearTimeout(job.timer); PENDING=null; hideUndo();
+  job.items.slice().reverse().forEach(function(it){
+    var arr=bucket(it.coll); if(idxOf(arr,it.rec.id)>=0) return;
+    arr.splice(it.at>=0?Math.min(it.at,arr.length):arr.length,0,it.rec);
+  });
+  renderAll(); toast("Επαναφέρθηκε");
+}
+function commitPending(){
+  var job=PENDING; if(!job) return Promise.resolve();
+  clearTimeout(job.timer); PENDING=null; hideUndo();
+  busy(true);
+  return job.items.reduce(function(pr,it){   /* με τη σειρά: οι κινήσεις πριν από την παραγγελία τους */
+    return pr.then(function(){
+      return sbFetch("/rest/v1/"+it.coll+"?id=eq."+encodeURIComponent(it.rec.id),{method:"DELETE"})
+        .then(function(){ it.done=true; });
+    });
+  },Promise.resolve()).then(function(){ busy(false); },function(){
+    busy(false);
+    job.items.forEach(function(it){
+      var arr=bucket(it.coll); if(!it.done && idxOf(arr,it.rec.id)<0) arr.push(it.rec);
+    });
+    renderAll(); toast("Η διαγραφή απέτυχε — η εγγραφή επανήλθε. Δοκίμασε ξανά.");
+  });
+}
+function undoToast(msg,onUndo){
+  hideUndo();
+  var t=document.createElement("div"); t.className="toast toast-undo"; t.id="undoToast"; t.setAttribute("role","status");
+  t.innerHTML='<span></span><button type="button" class="undo-btn">Αναίρεση</button><i class="undo-bar"></i>';
+  t.firstChild.textContent=msg;
+  t.querySelector("button").onclick=onUndo;
+  document.body.appendChild(t);
+}
+function hideUndo(){ var t=document.getElementById("undoToast"); if(t) t.remove(); }
+window.addEventListener("pagehide",function(){
+  var job=PENDING; if(!job) return; PENDING=null;
+  job.items.forEach(function(it){
+    var h={apikey:SB.key}; if(SB.token) h.Authorization="Bearer "+SB.token;
+    try{ fetch(SB.url+"/rest/v1/"+it.coll+"?id=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
+  });
+});
+document.addEventListener("keydown",function(e){
+  if(!PENDING || !(e.ctrlKey||e.metaKey) || (e.key!=="z"&&e.key!=="Z"&&e.code!=="KeyZ")) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  e.preventDefault(); undoPending(PENDING);
+});
 
 /* ---------- εξαγωγές ---------- */
 function dl(name,text,mime){
@@ -1732,10 +1802,10 @@ document.getElementById("fType").innerHTML='<option value="">Όλοι</option>'+
 document.addEventListener("click",function(e){
   var el=e.target.closest("[data-del-move],[data-del-order],[data-edit-order],[data-receive],[data-edit-prod],[data-ship],[data-cancel-resv],[data-del-resv]");
   if(!el) return;
-  if(el.hasAttribute("data-del-move")) confirmDelete("movements",el.getAttribute("data-del-move"),"αυτή την κίνηση");
+  if(el.hasAttribute("data-del-move")) deleteRecord("movements",el.getAttribute("data-del-move"),"Η κίνηση διαγράφηκε");
   else if(el.hasAttribute("data-del-order")) deleteOrder(el.getAttribute("data-del-order"));
   else if(el.hasAttribute("data-edit-order")) orderForm(el.getAttribute("data-edit-order"));
-  else if(el.hasAttribute("data-del-resv")) confirmDelete("reservations",el.getAttribute("data-del-resv"),"αυτή τη δέσμευση");
+  else if(el.hasAttribute("data-del-resv")) deleteRecord("reservations",el.getAttribute("data-del-resv"),"Η δέσμευση διαγράφηκε");
   else if(el.hasAttribute("data-ship")) shipResv(el.getAttribute("data-ship"));
   else if(el.hasAttribute("data-cancel-resv")) cancelResv(el.getAttribute("data-cancel-resv"));
   else if(el.hasAttribute("data-receive")) receiveForm(el.getAttribute("data-receive"));
@@ -1746,34 +1816,24 @@ function deleteOrder(oid){
   var linked=movements.filter(function(m){ return m.order===oid; });
   var lk=0; linked.forEach(function(m){ lk+=(m.qty_kg||0); });
   var p=prod(o.product);
-  var html='<h2>Διαγραφή παραγγελίας</h2>';
-  if(linked.length){
-    html+='<p class="hint">Αυτή η παραγγελία έχει παραληφθεί και έχει δημιουργήσει κίνηση εισαγωγής '+
+  if(!linked.length){ deleteRecord("orders",oid,"Η παραγγελία διαγράφηκε"); return; }
+  /* παραληφθείσα: ρωτάμε αν φεύγει και η κίνηση παραλαβής — ερώτηση, όχι επιβεβαίωση */
+  openModal('<h2>Διαγραφή παραγγελίας</h2>'+
+    '<p class="hint">Αυτή η παραγγελία έχει παραληφθεί και έχει δημιουργήσει κίνηση εισαγωγής '+
       qty(p,lk)+'. Αν διαγράψεις μόνο την παραγγελία, το εμπόρευμα παραμένει στο απόθεμα.</p>'+
-      '<div class="acts" style="flex-wrap:wrap">'+
+    '<div class="acts" style="flex-wrap:wrap">'+
       '<button class="btn" id="doNo">Ακύρωση</button>'+
       '<button class="btn" id="doOnly">Μόνο η παραγγελία</button>'+
-      '<button class="btn btn-primary" id="doBoth" style="background:var(--crit);border-color:var(--crit)">Και οι δύο</button></div>';
-  } else {
-    html+='<p class="hint">Θα διαγραφεί οριστικά. Δεν αναιρείται.</p>'+
-      '<div class="acts"><button class="btn" id="doNo">Ακύρωση</button>'+
-      '<button class="btn btn-primary" id="doOnly" style="background:var(--crit);border-color:var(--crit)">Διαγραφή</button></div>';
-  }
-  openModal(html);
+      '<button class="btn btn-primary" id="doBoth" style="background:var(--crit);border-color:var(--crit)">Και οι δύο</button></div>');
   document.getElementById("doNo").onclick=closeModal;
-  document.getElementById("doOnly").onclick=function(){ remove("orders",oid); closeModal(); };
-  var both=document.getElementById("doBoth");
-  if(both) both.onclick=function(){
-    linked.forEach(function(m){ remove("movements",m.id); });
-    remove("orders",oid); closeModal();
+  document.getElementById("doOnly").onclick=function(){
+    closeModal(); deleteRecord("orders",oid,"Η παραγγελία διαγράφηκε");
   };
-}
-function confirmDelete(coll,id,what){
-  openModal('<h2>Διαγραφή</h2><p class="hint">Θα διαγραφεί '+esc(what)+'. Δεν αναιρείται.</p>'+
-    '<div class="acts"><button class="btn" id="cdNo">Ακύρωση</button>'+
-    '<button class="btn btn-primary" id="cdYes" style="background:var(--crit);border-color:var(--crit)">Διαγραφή</button></div>');
-  document.getElementById("cdNo").onclick=closeModal;
-  document.getElementById("cdYes").onclick=function(){ remove(coll,id); closeModal(); };
+  document.getElementById("doBoth").onclick=function(){
+    closeModal();
+    softDelete(linked.map(function(m){ return {coll:"movements",rec:m}; }).concat([{coll:"orders",rec:o}]),
+      "Διαγράφηκαν η παραγγελία και η παραλαβή της");
+  };
 }
 
 /* ---------- boot: login και φόρτωση ---------- */
@@ -1798,7 +1858,7 @@ document.getElementById("gateForm").addEventListener("submit",function(e){
   .then(function(){ btn.disabled=false; btn.textContent="Σύνδεση"; });
 });
 document.getElementById("btnLogout").onclick=function(){
-  sbClear(); location.reload();
+  commitPending().then(function(){ sbClear(); location.reload(); });
 };
 document.getElementById("btnRefresh").onclick=function(){ loadAll(); };
 document.getElementById("btnExport").onclick=exportAll;
