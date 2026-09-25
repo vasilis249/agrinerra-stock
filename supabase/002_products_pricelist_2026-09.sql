@@ -1,18 +1,14 @@
 -- 002_products_pricelist_2026-09.sql
 -- Προσθέτει τα προϊόντα του τιμοκαταλόγου Schaumann «Griechenland - Innera-Esperia», 01/09/2026:
--- μόνο όνομα και τεμάχια ανά παλέτα (στήλη «Bags per pallet»).
---
--- Ασφαλές για τα υπάρχοντα δεδομένα:
---   * Δεν αλλάζει και δεν σβήνει κανένα προϊόν που ήδη υπάρχει (ταίριασμα με κωδικό άρθρου ή όνομα).
---   * Μόνο αν ένα υπάρχον προϊόν δεν έχει καθόλου τεμάχια ανά παλέτα, τα συμπληρώνει από τον τιμοκατάλογο.
---   * Δεν αγγίζει κινήσεις, παραγγελίες, δεσμεύσεις ή πελάτες.
---   * Μπορεί να τρέξει ξανά χωρίς να δημιουργήσει διπλά.
--- Τρέξ' το στο Supabase: SQL Editor -> New query -> επικόλληση -> Run.
+-- μόνο όνομα και τεμάχια ανά παλέτα.
+-- Είναι ΜΙΑ εντολή: ή γίνεται ολόκληρη ή δεν γίνεται τίποτα.
+-- Δεν αλλάζει και δεν σβήνει υπάρχοντα προϊόντα· μόνο συμπληρώνει τα τεμάχια ανά παλέτα όπου λείπουν.
+-- Μπορεί να τρέξει ξανά χωρίς να φτιάξει διπλά.
+-- Supabase: SQL Editor -> New query -> επικόλληση ΟΛΟΥ του αρχείου -> Run.
+-- Στο αποτέλεσμα βλέπεις τα προϊόντα που προστέθηκαν (κενό αν υπήρχαν ήδη όλα).
 
-begin;
-
-create temp table pricelist(id text, article text, name text, bags_pallet integer) on commit drop;
-insert into pg_temp.pricelist(id, article, name, bags_pallet) values
+with pricelist(id, article, name, bags_pallet) as (
+  values
   ('231267-0030', '231267-0030', 'RINDAVITAL VK CLASSIC', 36),
   ('232120-0000', '232120-0000', 'MELOVIT FLÜSSIG (5 ltr.)', 0),
   ('232214-0025', '232214-0025', 'KALBI MILCH FIT', 40),
@@ -105,47 +101,24 @@ insert into pg_temp.pricelist(id, article, name, bags_pallet) values
   ('BONSILAGE-MAIS-400G-KONV', 'xx6915-0000', 'BONSILAGE MAIS 400G (konv)', 700),
   ('BONSILAGE-MAIS-100G-OEKO', 'xx67xx-0000', 'BONSILAGE MAIS 100G (öko)', 1800),
   ('436740-0000', '436740-0000', 'MIXING BUCKET 2,5L', 0),
-  ('906799-0000', '906799-0000', 'MIXING BUCKET 17L', 0);
-
-do $$
-declare
-  sch text; tname text; t text; idtype text; before bigint; after bigint;
-  matches text := $m$(
-      p.id::text = v.id or p.id::text = v.article or coalesce(p.code,'') = v.article
-      or upper(regexp_replace(trim(p.name), '\s+', ' ', 'g')) = upper(v.name))$m$;
-begin
-  -- Βρίσκει τον πίνακα των προϊόντων όπου κι αν είναι (συνήθως public.products).
-  select table_schema, table_name into sch, tname from information_schema.tables
-   where lower(table_name) = 'products' and table_type = 'BASE TABLE'
-     and table_schema not in ('pg_catalog', 'information_schema')
-   order by (table_schema = 'public') desc, table_schema
-   limit 1;
-  if sch is null then
-    raise exception 'Δεν υπάρχει πίνακας products σε αυτό το project. Άνοιξε τον SQL Editor στο project gyelvbcytckwpjecrcnr (το ίδιο που χρησιμοποιεί η εφαρμογή).';
-  end if;
-  t := format('%I.%I', sch, tname);
-  execute 'select count(*) from ' || t into before;
-
-  -- 1. Υπάρχοντα προϊόντα χωρίς τεμάχια ανά παλέτα: συμπλήρωση από τον τιμοκατάλογο.
-  execute 'update ' || t || ' p set bags_pallet = v.bags_pallet from pg_temp.pricelist v
-           where coalesce(p.bags_pallet, 0) = 0 and not coalesce(p.no_pallet, false)
-             and v.bags_pallet > 0 and ' || matches;
-
-  -- 2. Νέα προϊόντα: μόνο όσα δεν υπάρχουν ήδη.
-  select data_type into idtype from information_schema.columns
-   where table_schema = sch and table_name = tname and column_name = 'id';
-  if idtype in ('text', 'character varying') then
-    execute 'insert into ' || t || '(id, name, bags_pallet)
-             select v.id, v.name, v.bags_pallet from pg_temp.pricelist v
-             where not exists (select 1 from ' || t || ' p where ' || matches || ')';
-  else
-    execute 'insert into ' || t || '(name, bags_pallet)
-             select v.name, v.bags_pallet from pg_temp.pricelist v
-             where not exists (select 1 from ' || t || ' p where ' || matches || ')';
-  end if;
-
-  execute 'select count(*) from ' || t into after;
-  raise notice 'Πίνακας %: ήταν % προϊόντα, τώρα %.', t, before, after;
-end $$;
-
-commit;
+  ('906799-0000', '906799-0000', 'MIXING BUCKET 17L', 0)
+),
+filled as (
+  update products p
+     set bags_pallet = v.bags_pallet
+    from pricelist v
+   where coalesce(p.bags_pallet, 0) = 0
+     and not coalesce(p.no_pallet, false)
+     and v.bags_pallet > 0
+     and (p.id::text = v.id or p.id::text = v.article or coalesce(p.code, '') = v.article
+          or upper(regexp_replace(trim(p.name), '\s+', ' ', 'g')) = upper(v.name))
+  returning p.id
+)
+insert into products (id, name, bags_pallet)
+select v.id, v.name, v.bags_pallet
+  from pricelist v
+ where not exists (
+   select 1 from products p
+    where p.id::text = v.id or p.id::text = v.article or coalesce(p.code, '') = v.article
+       or upper(regexp_replace(trim(p.name), '\s+', ' ', 'g')) = upper(v.name))
+returning id as "κωδικός", name as "προϊόν", bags_pallet as "τεμάχια ανά παλέτα";
