@@ -136,11 +136,13 @@ main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
 .alert .why{color:var(--muted);margin-left:auto;text-align:right;font-size:12.5px}
 
 /* ---------- table ---------- */
-.tw{overflow-x:auto}
+.tw{overflow:auto;max-height:calc(100vh - 150px)}   /* ο πίνακας κυλά μέσα στο πλαίσιο, οι τίτλοι μένουν πάνω */
 table{border-collapse:collapse;width:100%;min-width:980px}
+#stockTable{min-width:1100px}
 th{
   font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--faint);text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+  position:sticky;top:0;z-index:2;background:var(--surface);box-shadow:inset 0 -1px 0 var(--line);
 }
 th:first-child{text-align:left}
 td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
@@ -181,8 +183,8 @@ tbody tr:hover{background:var(--raised)}
   .legend span[style]{margin-left:0!important}
   .alert{flex-wrap:wrap;row-gap:4px}
   .alert .why{margin-left:0;width:100%;text-align:left}
-  .tw{overflow:visible}
-  .tw table{min-width:0}
+  .tw{overflow:visible;max-height:none}
+  .tw table,.tw #stockTable{min-width:0}
   .tw thead{display:none}
   .tw tbody,.tw tbody tr{display:block}
   .tw tbody tr{padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -223,6 +225,8 @@ tbody tr:hover{background:var(--raised)}
   #stockTable td[data-label="Ημέρες κάλυψης"]{order:7}
   #stockTable td[data-label="Απόθεμα"],#stockTable td[data-label="Προβλεπόμενο"],#stockTable td[data-label="Ημέρες κάλυψης"]{font-size:12.5px;padding:0 9px}
   #stockTable td[data-label="Σημείο αναπαρ."],#stockTable td[data-label="Αξία"]{display:none}
+  #stockTable td[data-label="Τεμ./παλέτα"]{order:8;font-size:12.5px;padding:0 9px}
+  #stockTable td[data-label=""]{grid-column:1 / -1;order:9;flex-direction:row;justify-content:flex-end}
 }
 @media(pointer:coarse){
   .btn,.tab,.cosel,.seg button{min-height:44px}
@@ -425,8 +429,8 @@ window.AGRINNERA_CONFIG = {
       </div>
       <div class="tw"><table id="stockTable">
         <thead><tr>
-          <th>Προϊόν</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th><th>Προβλεπόμενο</th>
-          <th>Ημέρες κάλυψης</th><th>Σημείο αναπαρ.</th><th>Αξία</th><th>Κατάσταση</th>
+          <th>Προϊόν</th><th>Τεμ./παλέτα</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th><th>Προβλεπόμενο</th>
+          <th>Ημέρες κάλυψης</th><th>Σημείο αναπαρ.</th><th>Αξία</th><th>Κατάσταση</th><th></th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
@@ -730,7 +734,7 @@ function renderAlerts(){
 
 function renderStock(){
   var tb=document.querySelector("#stockTable tbody");
-  if(!products.length){ tb.innerHTML='<tr><td colspan="10"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
+  if(!products.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
   var tv=0,tk=0,tt=0,tr=0,tp=0;
   tb.innerHTML=products.map(function(p){
     var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tr+=m.reserved;
@@ -738,6 +742,7 @@ function renderStock(){
     var pp=perPallet(p);
     return '<tr>'+
       '<td class="stripe s-'+m.status+'"><span class="pname">'+esc(p.name)+'</span><span class="pcode">'+esc(p.code||p.id)+'</span>'+bar(m)+'</td>'+
+      '<td class="num">'+(pp?n(pp):(p.no_pallet?'—':'<span style="color:var(--warn);font-size:12px" title="Όρισέ το στα Προϊόντα">δεν ορίστηκε</span>'))+'</td>'+
       '<td><span class="num">'+qty(p,m.stock)+'</span>'+(pp?'<span class="sec">'+pcs(m.stock)+'</span>':'')+'</td>'+
       '<td><span class="num v-resv">'+(m.reserved>0?qty(p,m.reserved):'—')+'</span>'+
         (m.reserved>0&&pp?'<span class="sec v-resv">'+pcs(m.reserved)+'</span>':'')+'</td>'+
@@ -751,6 +756,7 @@ function renderStock(){
       '<td class="num">'+(m.daily>0?qty(p,m.rop):'—')+'</td>'+
       '<td class="num">'+eur(m.value)+'</td>'+
       '<td><span class="pill p-'+m.status+'">'+m.label+'</span></td>'+
+      '<td><button class="btn btn-sm" data-stock-edit="'+esc(p.id)+'" title="Προσθήκη, αφαίρεση ή διόρθωση αποθέματος">± Απόθεμα</button></td>'+
     '</tr>';
   }).join("");
   document.getElementById("stockTotals").innerHTML=
@@ -1117,6 +1123,73 @@ function productOptions(sel){
   return products.map(function(p){
     return '<option value="'+esc(p.id)+'"'+(p.id===sel?" selected":"")+'>'+esc(p.name)+'</option>'; }).join("");
 }
+
+/* ----- προσθήκη / αφαίρεση / διόρθωση αποθέματος ----- */
+/* Το απόθεμα είναι το άθροισμα των κινήσεων, οπότε κάθε αλλαγή γράφεται ως κίνηση ΑΠΟΓΡΑΦΗ
+   με τη διαφορά (+ ή −) και φαίνεται στο ιστορικό των Κινήσεων. */
+function stockForm(pid){
+  var p=prod(pid); if(!p) return;
+  var pp=perPallet(p), mode="add";
+  var own=CO||(COMPANIES.filter(function(c){ return metricsFor(p,c).stock>0; })[0])||COMPANIES[0];
+  openModal('<h2>'+esc(p.name)+'</h2><p class="hint">Αλλαγή του τρέχοντος αποθέματος. Γράφεται ως κίνηση ΑΠΟΓΡΑΦΗ, ώστε να φαίνεται στις Κινήσεις.</p>'+
+  '<form id="sf">'+
+    '<label>Τι θέλεις<div class="seg" id="sfMode">'+
+      '<button type="button" data-m="add" aria-pressed="true">+ Προσθήκη</button>'+
+      '<button type="button" data-m="sub" aria-pressed="false">− Αφαίρεση</button>'+
+      '<button type="button" data-m="set" aria-pressed="false">Νέο σύνολο</button></div></label>'+
+    '<div class="grid2">'+
+      '<label>Εταιρεία<select id="sfOwner">'+COMPANIES.map(function(c){
+        return '<option value="'+c+'"'+(c===own?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Ημερομηνία<input type="date" id="sfDate" value="'+today()+'" required></label>'+
+    '</div>'+
+    '<div class="grid2">'+
+      (pp?'<label>Παλέτες<input type="number" id="sfPal" min="0" step="0.5" value=""></label>':'')+
+      '<label>'+(pp?'+ Τεμάχια':'Τεμάχια')+'<input type="number" id="sfQty" min="0" step="1" value=""></label>'+
+    '</div>'+
+    '<label>Αιτία<input type="text" id="sfNote" placeholder="π.χ. καταμέτρηση αποθήκης, λάθος καταχώρηση"></label>'+
+    '<p class="calc" id="sfCalc"></p>'+
+    '<div class="acts"><button type="button" class="btn" id="sfCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Καταχώρηση</button></div>'+
+  '</form>');
+  function entered(){
+    var pal=pp?(parseFloat(document.getElementById("sfPal").value)||0):0;
+    return palPcs(pal,pp)+(parseFloat(document.getElementById("sfQty").value)||0);
+  }
+  function current(){ return metricsFor(p,document.getElementById("sfOwner").value).stock; }
+  function delta(){ var q=entered(); return mode==="add"?q:mode==="sub"?-q:q-current(); }
+  function calc(){
+    var cur=current(), d=delta(), after=cur+d;
+    var out=(pp?"1 παλέτα = <b>"+pp+" τεμάχια</b><br>":"")+
+      "Απόθεμα "+esc(document.getElementById("sfOwner").value)+": <b>"+qty(p,cur)+"</b> → <b>"+qty(p,after)+"</b>"+
+      " · αλλαγή <b>"+(d>0?"+":"")+pcs(d)+"</b>";
+    if(after<0) out+=' · <span style="color:var(--warn)">βγαίνει αρνητικό</span>';
+    document.getElementById("sfCalc").innerHTML=out;
+  }
+  document.getElementById("sfMode").addEventListener("click",function(e){
+    var b=e.target.closest("button[data-m]"); if(!b) return;
+    mode=b.getAttribute("data-m");
+    Array.prototype.forEach.call(this.querySelectorAll("button"),function(x){ x.setAttribute("aria-pressed",x===b?"true":"false"); });
+    calc();
+  });
+  ["sfOwner","sfPal","sfQty"].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener("input",calc); });
+  calc();
+  document.getElementById("sfCancel").onclick=closeModal;
+  document.getElementById("sf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var d=Math.round(delta()*100)/100;
+    if(mode!=="set" && entered()<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
+    if(!d){ toast("Καμία αλλαγή: το απόθεμα είναι ήδη αυτό"); return; }
+    var note=document.getElementById("sfNote").value.trim();
+    var what=mode==="set"?"νέο σύνολο "+pcs(entered()):mode==="add"?"προσθήκη "+pcs(entered()):"αφαίρεση "+pcs(entered());
+    save("movements",{id:uid("m"),ts:Date.now(),date:document.getElementById("sfDate").value||today(),
+      type:"ΑΠΟΓΡΑΦΗ",product:p.id,owner:document.getElementById("sfOwner").value,qty_kg:d,
+      batch:"",best_before:"",party:"",ref:"",note:"Διόρθωση αποθέματος: "+what+(note?" · "+note:"")},
+      function(){ toast("Το απόθεμα ενημερώθηκε"); closeModal(); });
+  });
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-stock-edit]"); if(b) stockForm(b.getAttribute("data-stock-edit"));
+});
 
 /* ----- movement form ----- */
 function moveForm(preset){
