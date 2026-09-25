@@ -453,7 +453,7 @@ window.AGRINNERA_CONFIG = {
     </select>
     <span id="busy" class="busy" hidden>συγχρονισμός…</span>
     <button class="btn btn-sm" id="btnRefresh" title="Ξαναφέρνει τα δεδομένα από τη βάση">Ανανέωση</button>
-    <button class="btn btn-sm" id="btnExport" title="Κατεβάζει όλα τα δεδομένα σε αρχείο">Αντίγραφο</button>
+    <button class="btn btn-sm" id="btnExport" title="Σώζει αντίγραφο ασφαλείας σε αρχείο HTML που ανοίγει χωρίς σύνδεση">Αντίγραφο</button>
     <span id="who" class="who"></span>
     <button class="btn btn-sm btn-ghost" id="btnLogout" title="Αποσύνδεση">Έξοδος</button>
     <button class="btn btn-primary" id="newMove">+ Κίνηση</button>
@@ -2328,11 +2328,81 @@ function zipStore(files){
   var out=new Uint8Array(len); all.forEach(function(a){ out.set(a,pos); pos+=a.length; });
   return out;
 }
+/* ----- αντίγραφο ασφαλείας: αρχείο HTML που ανοίγει χωρίς σύνδεση ----- */
+/* Δείχνει τα νούμερα της στιγμής (απόθεμα, δεσμεύσεις, παραγγελίες, παρτίδες, κινήσεις,
+   πελάτες, προϊόντα) και κρατά μέσα του όλα τα δεδομένα σε JSON για επαναφορά. */
+function backupHtml(){
+  var now=new Date(), stamp=greekDate(today())+" "+p2(now.getHours())+":"+p2(now.getMinutes());
+  function T(title,head,rows,note){
+    return '<h2>'+esc(title)+' <small>'+rows.length+'</small></h2>'+(note?'<p class="n">'+note+'</p>':'')+
+      (rows.length?'<table><thead><tr><th>#</th>'+head.map(function(h){ return '<th>'+esc(h)+'</th>'; }).join("")+'</tr></thead><tbody>'+
+        rows.map(function(r,i){ return '<tr><td class="i">'+(i+1)+'</td>'+r.map(function(c){ return '<td>'+c+'</td>'; }).join("")+'</tr>'; }).join("")+
+      '</tbody></table>':'<p class="n">Τίποτα.</p>');
+  }
+  function Q(p,v){ var pp=perPallet(p); return esc(qty(p,v))+(pp&&v?'<br><span class="s">'+esc(pcs(v))+'</span>':''); }
+  function stockRows(owner){
+    return products.map(function(p){ return {p:p,m:metricsFor(p,owner)}; })
+      .filter(function(x){ return !owner || x.m.stock||x.m.reserved||x.m.transit; })
+      .map(function(x){ var p=x.p, m=x.m;
+        return [esc(p.name),esc(p.code||p.id),perPallet(p)?n(perPallet(p)):"—",Q(p,m.stock),
+          '<span class="r">'+(m.reserved?Q(p,m.reserved):"—")+'</span>','<span class="f">'+Q(p,m.free)+'</span>',
+          m.transit?Q(p,m.transit):"—",Q(p,m.free+m.transit)]; });
+  }
+  var sh=["Προϊόν","Κωδικός","Τεμ./παλέτα","Απόθεμα","Δεσμευμένο","Διαθέσιμο","Καθ' οδόν","Προβλεπόμενο"];
+  var body='<h1>AGRINNERA · Αντίγραφο ασφαλείας</h1>'+
+    '<p class="n">'+esc(stamp)+(SB.email?' · '+esc(SB.email):'')+' · '+products.length+' προϊόντα, '+customers.length+' πελάτες, '+
+      movements.length+' κινήσεις, '+orders.length+' γραμμές παραγγελιών, '+reservations.length+' δεσμεύσεις</p>'+
+    T("Απόθεμα · όλες οι εταιρείες",sh,stockRows(""))+
+    COMPANIES.map(function(c){ return T("Απόθεμα · "+c,sh,stockRows(c)); }).join("")+
+    T("Ενεργές δεσμεύσεις",["Πελάτης","Προϊόν","Εταιρεία","Ποσότητα","Παρτίδα","Ημ/νία","Κρατείται έως","Σημείωση"],
+      activeResvAll().map(function(r){ var p=prod(r.product);
+        return [esc(custName(r.customer)),esc(p?p.name:r.product),esc(r.owner||""),Q(p,r.qty_kg),esc(r.batch||"όλες"),
+          greekDate(r.date),greekDate(r.until),esc(r.note||"")]; }))+
+    T("Παραγγελίες προς Γερμανία",["Αρ. παραγγελίας","Εταιρεία","Προϊόν","Ποσότητα","Ημ/νία","Άφιξη","Κατάσταση"],
+      (function(){ var out=[]; orderGroups(orders.slice()).forEach(function(g){ g.lines.forEach(function(o){ var p=prod(o.product);
+        out.push([esc(o.ref||""),esc(o.owner||""),esc(p?p.name:o.product),Q(p,o.qty_kg),greekDate(o.date),greekDate(o.eta),
+          o.status==="ΠΑΡΕΛΗΦΘΗ"?"Παρελήφθη "+greekDate(o.received):"Αναμένεται"]); }); }); return out; })())+
+    T("Παρτίδες με υπόλοιπο",["Παρτίδα","Προϊόν","Εταιρεία","Υπόλοιπο","Ανάλωση πριν","Πελάτες"],
+      allBatches().filter(function(b){ return b.balance>0.5; }).map(function(b){ var p=prod(b.product);
+        return [esc(b.batch),esc(p?p.name:b.product),esc(b.owner||""),Q(p,b.balance),greekDate(b.best_before),
+          esc(Object.keys(b.buyers).map(custName).join(", "))]; }))+
+    T("Κινήσεις",["Ημ/νία","Τύπος","Προϊόν","Εταιρεία","Ποσότητα","Παρτίδα","Ανάλωση πριν","Πελάτης","Παραστατικό","Σημείωση"],
+      movements.slice().sort(function(a,b){ return a.date!==b.date?(a.date<b.date?1:-1):(b.ts||0)-(a.ts||0); }).map(function(m){ var p=prod(m.product);
+        return [greekDate(m.date),esc(m.type),esc(p?p.name:m.product),esc(m.owner||""),
+          '<span class="'+((m.qty_kg||0)<0?"r":"f")+'">'+((m.qty_kg||0)>0?"+":"")+esc(pcs(m.qty_kg))+'</span>',
+          esc(m.batch||""),greekDate(m.best_before),esc(m.party?custName(m.party):""),esc(m.ref||""),esc(m.note||"")]; }))+
+    T("Πελάτες",["Πελάτης"],customers.map(function(c){ return [esc(c.name)]; }))+
+    T("Προϊόντα",["Προϊόν","Κωδικός","Τεμ./παλέτα","Τιμή ανά τεμάχιο","Παράδοση (εβδ.)","Ζήτηση τεμ./μήνα","Ελάχιστη παραγγελία"],
+      products.map(function(p){ return [esc(p.name),esc(p.code||p.id),p.bags_pallet?n(p.bags_pallet):(p.no_pallet?"δεν παλετοποιείται":"—"),
+        n1(p.price_eur_kg)+" €",n(p.lead_weeks),n(p.monthly_kg),p.moq?esc(qty(p,p.moq)):"—"]; }))+
+    '<p class="n">Τα πλήρη δεδομένα της βάσης βρίσκονται μέσα σε αυτό το αρχείο (ενότητα «agrinnera-data»), ώστε να μπορούν να επαναφερθούν αν χρειαστεί.</p>';
+  var data=JSON.stringify({app:"agrinnera-stock",exported:now.toISOString(),products:products,customers:customers,
+    movements:movements,orders:orders,reservations:reservations}).replace(/</g,"\\u003c");
+  return '<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'+
+    '<title>AGRINNERA αντίγραφο '+esc(stamp)+'</title><style>'+
+    'body{font:13px/1.45 -apple-system,"Segoe UI",Arial,sans-serif;color:#15201B;background:#fff;margin:0 auto;padding:20px;max-width:1400px}'+
+    'h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:26px 0 8px;border-bottom:2px solid #15201B;padding-bottom:4px}h2 small{color:#5C6B63;font-weight:400}'+
+    '.n{color:#5C6B63;margin:4px 0 8px}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #DCE2DD;padding:5px 7px;text-align:left;vertical-align:top}'+
+    'th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#5C6B63;background:#EDF1EE;position:sticky;top:0}'+
+    'td.i{color:#8A978F;width:1%}.s{color:#8A978F;font-size:11px}.r{color:#A32E28}.f{color:#2E7D5B}'+
+    '@media print{th{position:static}h2{break-after:avoid}tr{break-inside:avoid}}'+
+    '</style></head><body>'+body+
+    '<script type="application/json" id="agrinnera-data">'+data+'<\/script></body></html>';
+}
+function activeResvAll(){ var keep=CO; CO=""; try{ return activeResv(); } finally{ CO=keep; } }
+function allBatches(){ var keep=CO; CO=""; try{ return batches(); } finally{ CO=keep; } }
 function exportAll(){
-  dl("agrinnera-stock-"+today()+".json", JSON.stringify({
-    exported:new Date().toISOString(), products:products, customers:customers,
-    movements:movements, orders:orders, reservations:reservations },null,2), "application/json");
-  toast("Το αντίγραφο κατέβηκε");
+  var name="agrinnera-antigrafo-"+today()+".html", html=backupHtml();
+  var blob=new Blob([html],{type:"text/html;charset=utf-8"});
+  if(window.showSaveFilePicker){   /* Chrome/Edge στον υπολογιστή: διαλέγεις πού θα σωθεί */
+    window.showSaveFilePicker({suggestedName:name,types:[{description:"Αντίγραφο AGRINNERA",accept:{"text/html":[".html"]}}]})
+      .then(function(h){ return h.createWritable().then(function(w){ return w.write(blob).then(function(){ return w.close(); }); }); })
+      .then(function(){ toast("Το αντίγραφο σώθηκε"); },
+            function(e){ if(e&&e.name==="AbortError") return; dlBlob(name,blob); toast("Το αντίγραφο κατέβηκε στις Λήψεις"); });
+    return;
+  }
+  dlBlob(name,blob);
+  toast("Το αντίγραφο κατέβηκε στις Λήψεις");
 }
 function exportCSV(){
   var head=["Ημερομηνία","Τύπος","Εταιρεία","Κωδικός","Προϊόν","Τεμάχια","Παλέτες","Παρτίδα","Ανάλωση πριν","Πελάτης","Παραστατικό","Σημείωση"];
