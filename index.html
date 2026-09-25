@@ -277,6 +277,27 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .calc{font-family:"IBM Plex Mono";font-size:12.5px;color:var(--muted);background:var(--raised);border-radius:7px;padding:8px 10px}
 .calc b{color:var(--ink);font-weight:600}
 
+/* παραγγελίες με πολλά προϊόντα */
+tr.og td{border-top:2px solid var(--line-strong)}
+tr.ol td{padding-top:7px;padding-bottom:7px}
+tr.ol td:first-child{padding-left:30px}
+.ol-name{display:block;font-weight:500}
+.ol-head,.ol-row{display:grid;grid-template-columns:1fr 88px 88px 40px;gap:8px;align-items:center}
+.ol-head span{font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+#ofLines{display:flex;flex-direction:column;gap:8px}
+.rg-line{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px}
+.rg-line legend{font-weight:600;padding:0 4px;display:flex;gap:8px;align-items:center}
+.rg-line legend input{width:20px;height:20px;accent-color:var(--accent)}
+@media(max-width:560px){
+  .ol-head{display:none}
+  .ol-row{grid-template-columns:1fr 1fr 40px}
+  .ol-row select{grid-column:1 / -1}
+}
+@media(max-width:640px){
+  .tw tr.ol{padding-left:28px;background:var(--raised)}
+  .tw tr.ol td:empty{display:none}
+}
+
 /* προτεινόμενη παραγγελία */
 .truck{display:flex;flex-direction:column;gap:5px;min-width:200px}
 .truck .num{font-size:13px;font-weight:600}
@@ -496,17 +517,18 @@ window.AGRINNERA_CONFIG = {
       <div class="panel-head">
         <h2>Παραγγελίες προς Γερμανία</h2>
         <span class="sub">Ό,τι είναι καθ' οδόν και δεν έχει μπει ακόμα στο απόθεμα</span>
+        <button class="btn btn-sm" id="ordersXlsx" title="Όλες οι παραγγελίες σε αρχείο Excel">Εξαγωγή Excel</button>
         <button class="btn btn-sm btn-primary" id="newOrder">+ Παραγγελία</button>
       </div>
       <div class="tw"><table id="orderTable">
         <thead><tr>
-          <th>Παραγγελία</th><th>Προϊόν</th><th>Ποσότητα</th><th>Άφιξη</th>
+          <th>Παραγγελία / Προϊόν</th><th>Εταιρεία</th><th>Ποσότητα</th><th>Άφιξη</th>
           <th>Αξία</th><th>Κατάσταση</th><th></th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
       <div class="totals" id="orderTotals"></div>
-      <p class="note">Όταν φτάσει το φορτίο πατάς «Παραλαβή» και καταχωρείς παρτίδα και ανάλωση κατά προτίμηση πριν. Η παραγγελία κλείνει και δημιουργείται αυτόματα κίνηση εισαγωγής.</p>
+      <p class="note">Κάθε παραγγελία μπορεί να έχει πολλά προϊόντα. Όταν φτάσει το φορτίο πατάς «Παραλαβή» στην παραγγελία (ή σε ένα προϊόν) και καταχωρείς παρτίδα και ανάλωση κατά προτίμηση πριν· δημιουργείται αυτόματα κίνηση εισαγωγής για κάθε προϊόν.</p>
     </div>
   </section>
 
@@ -837,36 +859,89 @@ function renderMoves(){
 
 function renderOrders(){
   var tb=document.querySelector("#orderTable tbody");
-  var list=orders.filter(inScope).sort(function(a,b){
-    var ao=a.status==="ΠΑΡΕΛΗΦΘΗ"?1:0, bo=b.status==="ΠΑΡΕΛΗΦΘΗ"?1:0;
-    if(ao!==bo) return ao-bo;
-    return (a.eta||"")<(b.eta||"")?-1:1;
-  });
-  if(!list.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παραγγελία</b>Καταχώρησε τι έχεις παραγγείλει στη Γερμανία για να μετράει ως καθ'+"'"+' οδόν.</div></td></tr>';
+  var groups=orderGroups(orders.filter(inScope));
+  if(!groups.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παραγγελία</b>Καταχώρησε τι έχεις παραγγείλει στη Γερμανία για να μετράει ως καθ'+"'"+' οδόν.</div></td></tr>';
     document.getElementById("orderTotals").innerHTML=""; return; }
   var openKg=0,openEur=0,pallets=0;
-  tb.innerHTML=list.map(function(o){
-    var p=prod(o.product), done=o.status==="ΠΑΡΕΛΗΦΘΗ";
-    var d=daysBetween(o.eta);
-    if(!done){ openKg+=o.qty_kg||0; openEur+=(o.qty_kg||0)*((p&&p.price_eur_kg)||0); pallets+=(o.pallets||0); }
-    return '<tr>'+
-      '<td><span class="pname">'+esc(o.ref||o.id)+'</span><span class="pcode">παραγγέλθηκε '+greekDate(o.date)+'</span></td>'+
-      '<td style="text-align:right">'+esc(p?p.name:o.product)+'</td>'+
-      '<td><span class="num">'+qty(p,o.qty_kg)+'</span><span class="sec">'+pcs(o.qty_kg)+'</span></td>'+
-      '<td><span class="num">'+greekDate(o.eta)+'</span>'+
-        (!done&&d!==null?'<span class="sec">'+(d<0?"καθυστερεί "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
-      '<td class="num">'+eur((o.qty_kg||0)*((p&&p.price_eur_kg)||0))+'</td>'+
-      '<td><span class="pill '+(done?"p-ok":(d!==null&&d<0?"p-crit":"p-warn"))+'">'+(done?"Παρελήφθη":"Αναμένεται")+'</span></td>'+
+  tb.innerHTML=groups.map(function(g){
+    var open=g.lines.filter(function(o){ return o.status!=="ΠΑΡΕΛΗΦΘΗ"; });
+    var d=daysBetween(g.eta), gPcs=0, gPal=0, gEur=0, allPal=true;
+    var rows=g.lines.map(function(o){
+      var p=prod(o.product), pp=perPallet(p), done=o.status==="ΠΑΡΕΛΗΦΘΗ", od=daysBetween(o.eta);
+      var val=(o.qty_kg||0)*((p&&p.price_eur_kg)||0);
+      gPcs+=o.qty_kg||0; gEur+=val; if(pp) gPal+=(o.qty_kg||0)/pp; else allPal=false;
+      if(!done){ openKg+=o.qty_kg||0; openEur+=val; if(pp) pallets+=(o.qty_kg||0)/pp; }
+      return '<tr class="ol sub">'+
+        '<td><span class="ol-name">'+esc(p?p.name:o.product)+'</span><span class="pcode">'+esc(p?(p.code||p.id):"")+'</span>'+
+          '<span hidden>'+esc(g.ref||"")+'</span></td>'+
+        '<td></td>'+
+        '<td><span class="num">'+qty(p,o.qty_kg)+'</span><span class="sec">'+pcs(o.qty_kg)+'</span></td>'+
+        '<td>'+(o.eta!==g.eta?'<span class="num">'+greekDate(o.eta)+'</span>':'')+'</td>'+
+        '<td class="num">'+eur(val)+'</td>'+
+        '<td><span class="pill '+(done?"p-ok":(od!==null&&od<0?"p-crit":"p-warn"))+'">'+
+          (done?"Παρελήφθη"+(o.received?" "+greekDate(o.received):""):"Αναμένεται")+'</span></td>'+
+        '<td style="white-space:nowrap">'+
+          (done?'':'<button class="btn btn-sm" data-receive="'+esc(o.id)+'" title="Παραλαβή μόνο αυτού του προϊόντος">Παραλαβή</button> ')+
+          '<button class="btn btn-sm btn-ghost" data-del-order="'+esc(o.id)+'" title="Διαγραφή προϊόντος από την παραγγελία">✕</button>'+
+        '</td></tr>';
+    }).join("");
+    var names=g.lines.map(function(o){ var p=prod(o.product); return p?p.name:o.product; }).join(" · ");
+    var id=g.lines[0].id, allDone=!open.length, partial=open.length&&open.length<g.lines.length;
+    var head='<tr class="og">'+
+      '<td><span class="pname">'+esc(g.ref||"Χωρίς αριθμό")+'</span>'+
+        '<span class="pcode">παραγγέλθηκε '+greekDate(g.date)+' · '+g.lines.length+(g.lines.length===1?" προϊόν":" προϊόντα")+'</span>'+
+        '<span hidden>'+esc(names)+'</span></td>'+
+      '<td><span class="co">'+esc(g.owner||"—")+'</span></td>'+
+      '<td><span class="num">'+(allPal&&gPal?palWord(Math.round(gPal*100)/100):pcs(gPcs))+'</span><span class="sec">'+pcs(gPcs)+'</span></td>'+
+      '<td><span class="num">'+greekDate(g.eta)+'</span>'+
+        (!allDone&&d!==null?'<span class="sec">'+(d<0?"καθυστερεί "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
+      '<td class="num">'+eur(gEur)+'</td>'+
+      '<td><span class="pill '+(allDone?"p-ok":partial?"p-warn":(d!==null&&d<0?"p-crit":"p-warn"))+'">'+
+        (allDone?"Παρελήφθη":partial?"Μερικώς παρελήφθη":"Αναμένεται")+'</span></td>'+
       '<td style="white-space:nowrap">'+
-        (done?'':'<button class="btn btn-sm" data-receive="'+esc(o.id)+'">Παραλαβή</button> ')+
-        '<button class="btn btn-sm" data-edit-order="'+esc(o.id)+'" title="Τροποποίηση">✎</button> '+
-        '<button class="btn btn-sm btn-ghost" data-del-order="'+esc(o.id)+'" title="Διαγραφή">✕</button>'+
-      '</td>'+
-    '</tr>';
+        (open.length?'<button class="btn btn-sm" data-receive-group="'+esc(id)+'" title="Παραλαβή όλης της παραγγελίας">Παραλαβή</button> ':'')+
+        '<button class="btn btn-sm" data-edit-order="'+esc(id)+'" title="Τροποποίηση παραγγελίας">✎</button> '+
+        '<button class="btn btn-sm" data-xlsx-order="'+esc(id)+'" title="Εξαγωγή της παραγγελίας σε Excel">Excel</button> '+
+        '<button class="btn btn-sm btn-ghost" data-del-group="'+esc(id)+'" title="Διαγραφή όλης της παραγγελίας">✕</button>'+
+      '</td></tr>';
+    return head+rows;
   }).join("");
   document.getElementById("orderTotals").innerHTML=
     tile("Καθ' οδόν",n(openKg)+" τεμ.")+tile("Αξία",eur(openEur))+
-    tile("Παλέτες",n(pallets)+" / 24 ανά φορτηγό");
+    tile("Παλέτες",n1(pallets)+" / 24 ανά φορτηγό");
+}
+/* Μια παραγγελία = όσες γραμμές έχουν τον ίδιο αριθμό παραγγελίας και την ίδια εταιρεία
+   (κάθε γραμμή του πίνακα orders είναι ένα προϊόν). Χωρίς αριθμό, κάθε γραμμή είναι μόνη της. */
+function orderKey(o){ return o.ref ? "r|"+(o.owner||"")+"|"+o.ref : "i|"+o.id; }
+function orderGroups(list){
+  var map={}, out=[];
+  list.forEach(function(o){
+    var k=orderKey(o), g=map[k];
+    if(!g){ g=map[k]={key:k,ref:o.ref,owner:o.owner,date:o.date,eta:o.eta,lines:[]}; out.push(g); }
+    g.lines.push(o);
+    if(o.date && (!g.date || o.date<g.date)) g.date=o.date;
+  });
+  out.forEach(function(g){
+    var open=g.lines.filter(function(o){ return o.status!=="ΠΑΡΕΛΗΦΘΗ"; });
+    g.open=open.length>0;
+    (open.length?open:g.lines).forEach(function(o){ if(o.eta && (!g.eta || o.eta<g.eta)) g.eta=o.eta; });
+    g.lines.sort(function(a,b){ var x=prod(a.product), y=prod(b.product);
+      return String(x?x.name:a.product).localeCompare(String(y?y.name:b.product),"el"); });
+  });
+  return out.sort(function(a,b){
+    if(a.open!==b.open) return a.open?-1:1;
+    return (a.eta||"")<(b.eta||"")?-1:(a.eta||"")>(b.eta||"")?1:0;
+  });
+}
+function orderGroupOf(oid){
+  var o=findOrder(oid); if(!o) return null;
+  return orderGroups(orders.filter(function(x){ return orderKey(x)===orderKey(o); }))[0];
+}
+function nextOrderRef(){
+  var d=today().slice(2).replace(/-/g,""), used={}, k=1;
+  orders.forEach(function(o){ used[o.ref]=true; });
+  while(used["PO-"+d+"-"+k]) k++;
+  return "PO-"+d+"-"+k;
 }
 
 function renderBatches(){
@@ -1065,7 +1140,7 @@ function syncSugGroup(co){
 }
 function makeOrders(co){
   var box=document.querySelector('[data-sug-group="'+co+'"]'); if(!box) return;
-  var ref=box.querySelector("[data-sug-ref]").value.trim();
+  var ref=box.querySelector("[data-sug-ref]").value.trim()||nextOrderRef();
   var lines=suggestions().filter(function(l){ return l.co===co && l.on && l.want>0; });
   if(!lines.length){ toast("Διάλεξε τουλάχιστον ένα προϊόν"); return; }
   var recs=lines.map(function(l){
@@ -1472,67 +1547,189 @@ document.addEventListener("click",function(e){
   var b=e.target.closest("[data-note]"); if(b) showNote(b.getAttribute("data-note"));
 });
 
-/* ----- order form ----- */
+/* ----- order form: μία παραγγελία, πολλά προϊόντα ----- */
 function orderForm(oid){
-  var o=oid?findOrder(oid):null, done=!!(o&&o.status==="ΠΑΡΕΛΗΦΘΗ");
-  var hint = o ? (done
-      ? 'Η παραγγελία έχει παραληφθεί. Η αλλαγή ποσότητας εδώ ΔΕΝ αλλάζει το απόθεμα — αυτό προκύπτει από την κίνηση παραλαβής, που τη διορθώνεις στις Κινήσεις.'
-      : 'Τροποποίηση παραγγελίας που αναμένεται.')
-    : 'Μετράει ως καθ' + String.fromCharCode(39) + ' οδόν μέχρι να την παραλάβεις.';
-  openModal('<h2>'+(o?'Τροποποίηση παραγγελίας':'Νέα παραγγελία προς Γερμανία')+'</h2>'+
-  '<p class="hint">'+hint+'</p>'+
+  var g=oid?orderGroupOf(oid):null, first=g?g.lines[0]:null;
+  var editable=g?g.lines.filter(function(o){ return o.status!=="ΠΑΡΕΛΗΦΘΗ"; }):[];
+  var received=g?g.lines.filter(function(o){ return o.status==="ΠΑΡΕΛΗΦΘΗ"; }):[];
+  openModal('<h2>'+(g?'Τροποποίηση παραγγελίας':'Νέα παραγγελία προς Γερμανία')+'</h2>'+
+  '<p class="hint">'+(g?'Άλλαξε ποσότητες, πρόσθεσε ή αφαίρεσε προϊόντα. Όσα έχουν ήδη παραληφθεί δεν αλλάζουν εδώ.'
+     :'Βάλε όσα προϊόντα θέλεις στην ίδια παραγγελία. Μετράνε ως καθ'+String.fromCharCode(39)+' οδόν μέχρι να τα παραλάβεις.')+'</p>'+
   '<form id="of">'+
     '<div class="grid2">'+
-      '<label>Ημερομηνία παραγγελίας<input type="date" id="ofDate" value="'+((o&&o.date)||today())+'" required></label>'+
-      '<label>Εκτιμώμενη άφιξη<input type="date" id="ofEta" value="'+((o&&o.eta)||"")+'" required></label>'+
+      '<label>Ημερομηνία παραγγελίας<input type="date" id="ofDate" value="'+((first&&first.date)||today())+'" required></label>'+
+      '<label>Εκτιμώμενη άφιξη<input type="date" id="ofEta" value="'+((g&&g.eta)||"")+'" required></label>'+
     '</div>'+
     '<div class="grid2">'+
       '<label>Εταιρεία<select id="ofOwner" required>'+COMPANIES.map(function(c){
-        return '<option value="'+c+'"'+(c===((o&&o.owner)||CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
-      '<label>Προϊόν<select id="ofProduct" required>'+productOptions(o&&o.product)+'</select></label>'+
+        return '<option value="'+c+'"'+(c===((first&&first.owner)||CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Αριθμός παραγγελίας<input type="text" id="ofRef" value="'+esc((first&&first.ref)||"")+'" placeholder="κενό = αυτόματα"></label>'+
     '</div>'+
-    '<div class="grid2">'+
-      '<label>Παλέτες<input type="number" id="ofPal" min="0" step="1" value="'+((o&&o.pallets)||"")+'"></label>'+
-      '<label>+ Τεμάχια<input type="number" id="ofQty" min="0" step="1" value="" placeholder="0"></label>'+
-    '</div>'+
-    '<label>Αριθμός παραγγελίας<input type="text" id="ofRef" value="'+esc((o&&o.ref)||"")+'" placeholder="π.χ. PO-2026-07"></label>'+
+    '<div class="ol-head"><span>Προϊόν</span><span>Παλέτες</span><span>+ Τεμάχια</span><span></span></div>'+
+    '<div id="ofLines"></div>'+
+    (received.length?'<p class="calc">Έχουν παραληφθεί (δεν αλλάζουν):<br>'+received.map(function(o){
+      var p=prod(o.product); return esc(p?p.name:o.product)+' · <b>'+qty(p,o.qty_kg)+'</b>'; }).join("<br>")+'</p>':'')+
+    '<div><button type="button" class="btn btn-sm" id="ofAdd">+ Προϊόν</button></div>'+
     '<p class="calc" id="ofCalc"></p>'+
     '<div class="acts"><button type="button" class="btn" id="ofCancel">Ακύρωση</button>'+
-    '<button type="submit" class="btn btn-primary">'+(o?'Αποθήκευση':'Καταχώρηση')+'</button></div>'+
+    '<button type="submit" class="btn btn-primary">'+(g?'Αποθήκευση':'Καταχώρηση')+'</button></div>'+
   '</form>');
-  function ofPcs(){
-    var p=prod(document.getElementById("ofProduct").value), pp=perPallet(p);
-    return (parseFloat(document.getElementById("ofPal").value)||0)*pp +
-           (parseFloat(document.getElementById("ofQty").value)||0);
+  var box=document.getElementById("ofLines");
+  function addLine(o){
+    var p=o?prod(o.product):null, pp=perPallet(p);
+    var pal=o&&pp?Math.floor((o.qty_kg||0)/pp+1e-9):0, rest=o?Math.round(((o.qty_kg||0)-pal*pp)*100)/100:0;
+    var d=document.createElement("div"); d.className="ol-row"; if(o) d.setAttribute("data-id",o.id);
+    d.innerHTML='<select class="olProd" aria-label="Προϊόν"><option value="">Διάλεξε προϊόν</option>'+productOptions(o&&o.product)+'</select>'+
+      '<input type="number" class="olPal" min="0" step="1" placeholder="Παλέτες" aria-label="Παλέτες" value="'+(pal||"")+'">'+
+      '<input type="number" class="olQty" min="0" step="1" placeholder="Τεμάχια" aria-label="Τεμάχια" value="'+(rest||"")+'">'+
+      '<button type="button" class="btn btn-sm btn-ghost olDel" title="Αφαίρεση από την παραγγελία" aria-label="Αφαίρεση">✕</button>';
+    box.appendChild(d); syncLine(d);
+  }
+  function syncLine(d){
+    var pp=perPallet(prod(d.querySelector(".olProd").value)), pal=d.querySelector(".olPal");
+    pal.disabled=!pp; if(!pp) pal.value="";
+  }
+  function lineData(d){
+    var pid=d.querySelector(".olProd").value, pp=perPallet(prod(pid));
+    var pal=pp?(parseFloat(d.querySelector(".olPal").value)||0):0, q=parseFloat(d.querySelector(".olQty").value)||0;
+    return {id:d.getAttribute("data-id"),product:pid,pallets:pal,qty:pal*pp+q};
   }
   function calc(){
-    var p=prod(document.getElementById("ofProduct").value);
-    if(!p){ document.getElementById("ofCalc").innerHTML=""; return; }
-    var pp=perPallet(p), q=ofPcs();
-    var txt = pp ? "1 παλέτα = <b>"+pp+" τεμάχια</b>" : "Δεν έχεις ορίσει τεμάχια ανά παλέτα — συμπλήρωσε μόνο τεμάχια";
-    if(q>0) txt+=" · σύνολο <b>"+qty(p,q)+"</b> · αξία <b>"+eur(q*(p.price_eur_kg||0))+"</b>";
-    document.getElementById("ofCalc").innerHTML=txt;
+    var ls=Array.prototype.map.call(box.children,lineData).filter(function(l){ return l.product&&l.qty>0; });
+    var tot=0, pal=0, val=0;
+    ls.forEach(function(l){ var p=prod(l.product), pp=perPallet(p); tot+=l.qty; if(pp) pal+=l.qty/pp; val+=l.qty*((p&&p.price_eur_kg)||0); });
+    document.getElementById("ofCalc").innerHTML=ls.length
+      ? "<b>"+ls.length+(ls.length===1?" προϊόν":" προϊόντα")+"</b> · "+n1(pal)+" / 24 παλέτες φορτηγό · "+pcs(tot)+" · αξία <b>"+eur(val)+"</b>"
+      : "Διάλεξε προϊόν και ποσότητα.";
   }
-  ["ofProduct","ofQty","ofPal"].forEach(function(id){ document.getElementById(id).addEventListener("input",calc); });
+  (editable.length?editable:[null]).forEach(addLine);
+  box.addEventListener("input",function(e){ var d=e.target.closest(".ol-row"); if(d&&e.target.classList.contains("olProd")) syncLine(d); calc(); });
+  box.addEventListener("change",function(e){ var d=e.target.closest(".ol-row"); if(d) syncLine(d); calc(); });
+  box.addEventListener("click",function(e){
+    var b=e.target.closest(".olDel"); if(!b) return;
+    b.closest(".ol-row").remove(); if(!box.children.length) addLine(null); calc();
+  });
+  document.getElementById("ofAdd").onclick=function(){ addLine(null); box.lastChild.querySelector("select").focus(); calc(); };
   calc();
   document.getElementById("ofCancel").onclick=closeModal;
   document.getElementById("of").addEventListener("submit",function(e){
     e.preventDefault();
-    var rec={};
-    if(o){ for(var k in o) rec[k]=o[k]; }
-    rec.id = o?o.id:uid("o");
-    rec.owner=document.getElementById("ofOwner").value;
-    rec.date=document.getElementById("ofDate").value;
-    rec.eta=document.getElementById("ofEta").value;
-    rec.product=document.getElementById("ofProduct").value;
-    rec.qty_kg=ofPcs();
-    rec.pallets=parseFloat(document.getElementById("ofPal").value)||0;
-    if(rec.qty_kg<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
-    rec.ref=document.getElementById("ofRef").value.trim();
-    rec.status = o?(o.status||"ΑΝΑΜΕΝΕΤΑΙ"):"ΑΝΑΜΕΝΕΤΑΙ";
-    save("orders",rec,function(){ toast(o?"Η παραγγελία ενημερώθηκε":"Η παραγγελία καταχωρήθηκε"); closeModal(); });
+    var ls=Array.prototype.map.call(box.children,lineData).filter(function(l){ return l.product&&l.qty>0; });
+    if(!ls.length){ toast("Πρόσθεσε τουλάχιστον ένα προϊόν με ποσότητα"); return; }
+    var ref=document.getElementById("ofRef").value.trim()||nextOrderRef();
+    var date=document.getElementById("ofDate").value, eta=document.getElementById("ofEta").value, owner=document.getElementById("ofOwner").value;
+    var recs=ls.map(function(l){
+      var base=l.id?findOrder(l.id):null, rec={};
+      if(base) for(var k in base) rec[k]=base[k];
+      rec.id=l.id||uid("o"); rec.owner=owner; rec.date=date; rec.eta=eta; rec.ref=ref;
+      rec.product=l.product; rec.qty_kg=Math.round(l.qty*100)/100; rec.pallets=l.pallets;
+      rec.status=base?(base.status||"ΑΝΑΜΕΝΕΤΑΙ"):"ΑΝΑΜΕΝΕΤΑΙ";
+      return rec;
+    });
+    received.forEach(function(o){   /* μένουν στην ίδια παραγγελία */
+      var rec={}; for(var k in o) rec[k]=o[k]; rec.ref=ref; rec.date=date; recs.push(rec);
+    });
+    var removed=editable.filter(function(o){ return !ls.some(function(l){ return l.id===o.id; }); }).map(function(o){ return o.id; });
+    saveAll("orders",recs)
+      .then(function(){ return removed.length?removeAll("orders",removed):null; })
+      .then(function(){ toast(g?"Η παραγγελία ενημερώθηκε":"Η παραγγελία "+ref+" καταχωρήθηκε"); closeModal(); })
+      .catch(function(){});
   });
 }
+
+/* ----- παραλαβή όλης της παραγγελίας ----- */
+function receiveGroupForm(oid){
+  var g=orderGroupOf(oid); if(!g) return;
+  var open=g.lines.filter(function(o){ return o.status!=="ΠΑΡΕΛΗΦΘΗ"; });
+  if(!open.length) return;
+  openModal('<h2>Παραλαβή '+esc(g.ref||"παραγγελίας")+'</h2>'+
+  '<p class="hint">Για κάθε προϊόν: τεμάχια που ήρθαν, παρτίδα και ανάλωση πριν. Βγάλε το τικ από ό,τι δεν ήρθε ακόμα.</p>'+
+  '<form id="rgf">'+
+    '<div class="grid2">'+
+      '<label>Ημερομηνία παραλαβής<input type="date" id="rgDate" value="'+today()+'" required></label>'+
+      '<label>Παραστατικό<input type="text" id="rgRef" value="'+esc(g.ref||"")+'"></label>'+
+    '</div>'+
+    open.map(function(o){
+      var p=prod(o.product);
+      return '<fieldset class="rg-line" data-id="'+esc(o.id)+'"><legend><input type="checkbox" class="rgOn" checked aria-label="Παρελήφθη">'+
+        esc(p?p.name:o.product)+' · '+qty(p,o.qty_kg)+'</legend>'+
+        '<div class="grid3">'+
+          '<label>Τεμάχια<input type="number" class="rgQty" min="0" step="1" value="'+(o.qty_kg||0)+'"></label>'+
+          '<label>Παρτίδα<input type="text" class="rgBatch" placeholder="από τη συσκευασία"></label>'+
+          '<label>Ανάλωση πριν<input type="date" class="rgBB"></label>'+
+        '</div></fieldset>';
+    }).join("")+
+    '<div class="acts"><button type="button" class="btn" id="rgCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">Καταχώρηση παραλαβής</button></div>'+
+  '</form>');
+  document.getElementById("rgCancel").onclick=closeModal;
+  document.getElementById("rgf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var date=document.getElementById("rgDate").value||today(), ref=document.getElementById("rgRef").value.trim();
+    var mvs=[], upds=[], missing="";
+    Array.prototype.forEach.call(document.querySelectorAll("#rgf .rg-line"),function(fs,i){
+      if(!fs.querySelector(".rgOn").checked) return;
+      var o=findOrder(fs.getAttribute("data-id")), p=prod(o.product);
+      var batch=fs.querySelector(".rgBatch").value.trim(), bb=fs.querySelector(".rgBB").value;
+      if(!batch||!bb){ if(!missing) missing=p?p.name:o.product; return; }
+      mvs.push({id:uid("m")+i,ts:Date.now()+i,date:date,type:"ΠΑΡΑΛΑΒΗ",product:o.product,owner:o.owner||"",order:o.id,
+        qty_kg:parseFloat(fs.querySelector(".rgQty").value)||0,batch:batch,best_before:bb,party:"",ref:ref,
+        note:"Παραλαβή παραγγελίας "+(o.ref||o.id)});
+      var u={}; for(var k in o) u[k]=o[k]; u.status="ΠΑΡΕΛΗΦΘΗ"; u.received=date; upds.push(u);
+    });
+    if(missing){ toast("Συμπλήρωσε παρτίδα και ανάλωση για "+missing); return; }
+    if(!mvs.length){ toast("Δεν διάλεξες κανένα προϊόν"); return; }
+    saveAll("movements",mvs).then(function(){ return saveAll("orders",upds); })
+      .then(function(){ toast(mvs.length===1?"1 προϊόν μπήκε στο απόθεμα":mvs.length+" προϊόντα μπήκαν στο απόθεμα"); closeModal(); })
+      .catch(function(){});
+  });
+}
+
+/* ----- διαγραφή όλης της παραγγελίας ----- */
+function deleteOrderGroup(oid){
+  var g=orderGroupOf(oid); if(!g) return;
+  var ids=g.lines.map(function(o){ return o.id; });
+  var linked=movements.filter(function(m){ return ids.indexOf(m.order)>=0; });
+  var items=g.lines.map(function(o){ return {coll:"orders",rec:o}; });
+  var what="Η παραγγελία "+(g.ref||"")+" διαγράφηκε";
+  if(!linked.length){ softDelete(items,what); return; }
+  openModal('<h2>Διαγραφή παραγγελίας</h2>'+
+    '<p class="hint">Μέρος της παραγγελίας έχει παραληφθεί και έχει δημιουργήσει '+linked.length+
+      (linked.length===1?' κίνηση':' κινήσεις')+' εισαγωγής. Αν διαγράψεις μόνο την παραγγελία, το εμπόρευμα παραμένει στο απόθεμα.</p>'+
+    '<div class="acts" style="flex-wrap:wrap">'+
+      '<button class="btn" id="dgNo">Ακύρωση</button>'+
+      '<button class="btn" id="dgOnly">Μόνο η παραγγελία</button>'+
+      '<button class="btn btn-primary" id="dgBoth" style="background:var(--crit);border-color:var(--crit)">Και οι δύο</button></div>');
+  document.getElementById("dgNo").onclick=closeModal;
+  document.getElementById("dgOnly").onclick=function(){ closeModal(); softDelete(items,what); };
+  document.getElementById("dgBoth").onclick=function(){
+    closeModal();
+    softDelete(linked.map(function(m){ return {coll:"movements",rec:m}; }).concat(items),"Διαγράφηκαν η παραγγελία και οι παραλαβές της");
+  };
+}
+
+/* ----- εξαγωγή παραγγελιών σε Excel ----- */
+function exportOrdersXlsx(lines,name){
+  var rows=[["Αρ. παραγγελίας","Ημ/νία παραγγελίας","Εκτιμώμενη άφιξη","Εταιρεία","Κωδικός","Προϊόν",
+             "Παλέτες","Τεμάχια","Τεμ./παλέτα","Κατάσταση","Παραλαβή"]];
+  lines.forEach(function(o){
+    var p=prod(o.product), pp=perPallet(p);
+    rows.push([o.ref||"",{d:o.date},{d:o.eta},o.owner||"",p?(p.code||p.id):o.product,p?p.name:o.product,
+      pp?Math.round((o.qty_kg||0)/pp*100)/100:"",o.qty_kg||0,pp||"",
+      o.status==="ΠΑΡΕΛΗΦΘΗ"?"Παρελήφθη":"Αναμένεται",{d:o.received}]);
+  });
+  dlBlob(name,xlsxBlob("Παραγγελίες",rows,[18,14,14,13,14,36,9,10,11,12,12]));
+  toast("Το αρχείο Excel κατέβηκε");
+}
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-receive-group],[data-del-group],[data-xlsx-order]"); if(!el) return;
+  if(el.hasAttribute("data-receive-group")) receiveGroupForm(el.getAttribute("data-receive-group"));
+  else if(el.hasAttribute("data-del-group")) deleteOrderGroup(el.getAttribute("data-del-group"));
+  else {
+    var g=orderGroupOf(el.getAttribute("data-xlsx-order")); if(!g) return;
+    exportOrdersXlsx(g.lines,"paraggelia-"+String(g.ref||g.lines[0].id).replace(/[^A-Za-z0-9._-]+/g,"_")+".xlsx");
+  }
+});
 
 /* ----- receive an order ----- */
 function receiveForm(oid){
@@ -1762,6 +1959,31 @@ function save(coll,rec,done){
   });
 }
 
+/* Πολλές εγγραφές σε ένα αίτημα: ή γράφονται όλες ή καμία. */
+function saveAll(coll,recs){
+  busy(true);
+  return sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(recs.map(MAP[coll].out)),
+    extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+  .then(function(){
+    var arr=bucket(coll);
+    recs.forEach(function(r){ var i=idxOf(arr,r.id); if(i>=0) arr[i]=r; else arr.push(r); });
+    busy(false); renderAll();
+  },function(e){
+    busy(false);
+    toast(String(e&&e.message||"").indexOf("row-level")>=0 ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
+    throw e;
+  });
+}
+function removeAll(coll,ids){
+  busy(true);
+  var f=encodeURIComponent("("+ids.map(function(id){ return '"'+String(id).replace(/"/g,'')+'"'; }).join(",")+")");
+  return sbFetch("/rest/v1/"+coll+"?id=in."+f,{method:"DELETE"}).then(function(){
+    var arr=bucket(coll);
+    ids.forEach(function(id){ var i=idxOf(arr,id); if(i>=0) arr.splice(i,1); });
+    busy(false); renderAll();
+  },function(e){ busy(false); toast("Η διαγραφή απέτυχε"); throw e; });
+}
+
 /* ---------- διαγραφή με αναίρεση ---------- */
 /* Όπως στο Gmail: η εγγραφή φεύγει αμέσως από την οθόνη, αλλά η βάση ενημερώνεται μετά από
    5 δευτερόλεπτα, εκτός αν πατήσεις «Αναίρεση». Μία εκκρεμής διαγραφή τη φορά: μια νέα
@@ -1837,6 +2059,90 @@ function dl(name,text,mime){
   a.href=URL.createObjectURL(b); a.download=name;
   document.body.appendChild(a); a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500);
+}
+function dlBlob(name,blob){
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500);
+}
+/* Αρχείο .xlsx χωρίς εξωτερική βιβλιοθήκη: ένα φύλλο, η πρώτη γραμμή έντονη και «παγωμένη».
+   Τιμή = κείμενο, αριθμός ή {d:"YYYY-MM-DD"} για ημερομηνία. */
+function xlsxBlob(sheetName,rows,widths){
+  function x(v){ return String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"")
+    .replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function col(i){ var s=""; i++; while(i){ var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+  function serial(iso){ var p=iso.split("-"); return (Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(1899,11,30))/86400000; }
+  var NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
+  var head='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  var sheet=head+'<worksheet '+NS+'><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'+
+    (widths?'<cols>'+widths.map(function(w,i){ return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'; }).join("")+'</cols>':'')+
+    '<sheetData>'+rows.map(function(r,ri){
+      return '<row r="'+(ri+1)+'">'+r.map(function(v,ci){
+        var ref=col(ci)+(ri+1), st=ri===0?' s="1"':'';
+        if(v===null||v===undefined||v==="") return "";
+        if(typeof v==="number") return isFinite(v)?'<c r="'+ref+'"'+st+'><v>'+v+'</v></c>':"";
+        if(typeof v==="object") return v.d?'<c r="'+ref+'" s="2"><v>'+serial(v.d)+'</v></c>':"";
+        return '<c r="'+ref+'" t="inlineStr"'+st+'><is><t xml:space="preserve">'+x(v)+'</t></is></c>';
+      }).join("")+'</row>';
+    }).join("")+'</sheetData></worksheet>';
+  var styles=head+'<styleSheet '+NS+'>'+
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'+
+    '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'+
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+      '<xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'+
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var R='http://schemas.openxmlformats.org/officeDocument/2006/relationships', P='http://schemas.openxmlformats.org/package/2006/relationships';
+  var files=[
+    ["[Content_Types].xml",head+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+      '<Default Extension="xml" ContentType="application/xml"/>'+
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+    ["_rels/.rels",head+'<Relationships xmlns="'+P+'"><Relationship Id="rId1" Type="'+R+'/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ["xl/workbook.xml",head+'<workbook '+NS+' xmlns:r="'+R+'"><sheets><sheet name="'+x(sheetName.slice(0,31))+'" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ["xl/_rels/workbook.xml.rels",head+'<Relationships xmlns="'+P+'"><Relationship Id="rId1" Type="'+R+'/worksheet" Target="worksheets/sheet1.xml"/>'+
+      '<Relationship Id="rId2" Type="'+R+'/styles" Target="styles.xml"/></Relationships>'],
+    ["xl/worksheets/sheet1.xml",sheet],
+    ["xl/styles.xml",styles]
+  ];
+  return new Blob([zipStore(files)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+/* ZIP χωρίς συμπίεση (αρκεί για το .xlsx) */
+var CRC_T=null;
+function crc32(b){
+  if(!CRC_T){ CRC_T=[]; for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; CRC_T[n]=c>>>0; } }
+  var crc=0xFFFFFFFF; for(var i=0;i<b.length;i++) crc=CRC_T[(crc^b[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function zipStore(files){
+  var enc=new TextEncoder(), parts=[], central=[], off=0, csize=0;
+  files.forEach(function(f){
+    var name=enc.encode(f[0]), data=enc.encode(f[1]), crc=crc32(data);
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,0,true); lh.setUint16(12,0x21,true); lh.setUint32(14,crc,true);
+    lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true); lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),name,data);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true);
+    ch.setUint16(10,0,true); ch.setUint16(12,0,true); ch.setUint16(14,0x21,true); ch.setUint32(16,crc,true);
+    ch.setUint32(20,data.length,true); ch.setUint32(24,data.length,true); ch.setUint16(28,name.length,true);
+    ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),name);
+    off+=30+name.length+data.length; csize+=46+name.length;
+  });
+  var end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+  end.setUint32(12,csize,true); end.setUint32(16,off,true);
+  var all=parts.concat(central,[new Uint8Array(end.buffer)]), len=0, pos=0;
+  all.forEach(function(a){ len+=a.length; });
+  var out=new Uint8Array(len); all.forEach(function(a){ out.set(a,pos); pos+=a.length; });
+  return out;
 }
 function exportAll(){
   dl("agrinnera-stock-"+today()+".json", JSON.stringify({
@@ -2032,6 +2338,11 @@ document.getElementById("newMove").onclick=function(){ moveForm(); };
 document.getElementById("newMove2").onclick=function(){ moveForm(); };
 document.getElementById("newResv").onclick=resvForm;
 document.getElementById("newOrder").onclick=function(){ orderForm(); };
+document.getElementById("ordersXlsx").onclick=function(){
+  var lines=[]; orderGroups(orders.filter(inScope)).forEach(function(g){ lines=lines.concat(g.lines); });
+  if(!lines.length){ toast("Δεν υπάρχουν παραγγελίες για εξαγωγή"); return; }
+  exportOrdersXlsx(lines,"agrinnera-paraggelies-"+today()+".xlsx");
+};
 document.getElementById("newOrderTop").onclick=function(){ orderForm(); };
 ["fProduct","fType","fFrom","fTo"].forEach(function(id){
   document.getElementById(id).addEventListener("change",renderMoves);
