@@ -109,32 +109,43 @@ insert into pg_temp.pricelist(id, article, name, bags_pallet) values
 
 do $$
 declare
-  idtype text;
+  sch text; tname text; t text; idtype text; before bigint; after bigint;
   matches text := $m$(
       p.id::text = v.id or p.id::text = v.article or coalesce(p.code,'') = v.article
       or upper(regexp_replace(trim(p.name), '\s+', ' ', 'g')) = upper(v.name))$m$;
 begin
-  if to_regclass('public.products') is null then
-    raise exception 'Δεν βρέθηκε ο πίνακας public.products σε αυτό το project. Έλεγξε ότι είσαι στο σωστό project του Supabase (gyelvbcytckwpjecrcnr).';
+  -- Βρίσκει τον πίνακα των προϊόντων όπου κι αν είναι (συνήθως public.products).
+  select table_schema, table_name into sch, tname from information_schema.tables
+   where lower(table_name) = 'products' and table_type = 'BASE TABLE'
+     and table_schema not in ('pg_catalog', 'information_schema')
+   order by (table_schema = 'public') desc, table_schema
+   limit 1;
+  if sch is null then
+    raise exception 'Δεν υπάρχει πίνακας products σε αυτό το project. Άνοιξε τον SQL Editor στο project gyelvbcytckwpjecrcnr (το ίδιο που χρησιμοποιεί η εφαρμογή).';
   end if;
+  t := format('%I.%I', sch, tname);
+  execute 'select count(*) from ' || t into before;
 
   -- 1. Υπάρχοντα προϊόντα χωρίς τεμάχια ανά παλέτα: συμπλήρωση από τον τιμοκατάλογο.
-  execute 'update public.products p set bags_pallet = v.bags_pallet from pg_temp.pricelist v
+  execute 'update ' || t || ' p set bags_pallet = v.bags_pallet from pg_temp.pricelist v
            where coalesce(p.bags_pallet, 0) = 0 and not coalesce(p.no_pallet, false)
              and v.bags_pallet > 0 and ' || matches;
 
   -- 2. Νέα προϊόντα: μόνο όσα δεν υπάρχουν ήδη.
   select data_type into idtype from information_schema.columns
-   where table_schema = 'public' and table_name = 'products' and column_name = 'id';
+   where table_schema = sch and table_name = tname and column_name = 'id';
   if idtype in ('text', 'character varying') then
-    execute 'insert into public.products(id, name, bags_pallet)
+    execute 'insert into ' || t || '(id, name, bags_pallet)
              select v.id, v.name, v.bags_pallet from pg_temp.pricelist v
-             where not exists (select 1 from public.products p where ' || matches || ')';
+             where not exists (select 1 from ' || t || ' p where ' || matches || ')';
   else
-    execute 'insert into public.products(name, bags_pallet)
+    execute 'insert into ' || t || '(name, bags_pallet)
              select v.name, v.bags_pallet from pg_temp.pricelist v
-             where not exists (select 1 from public.products p where ' || matches || ')';
+             where not exists (select 1 from ' || t || ' p where ' || matches || ')';
   end if;
+
+  execute 'select count(*) from ' || t into after;
+  raise notice 'Πίνακας %: ήταν % προϊόντα, τώρα %.', t, before, after;
 end $$;
 
 commit;
