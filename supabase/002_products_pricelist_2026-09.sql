@@ -12,7 +12,7 @@
 begin;
 
 create temp table pricelist(id text, article text, name text, bags_pallet integer) on commit drop;
-insert into pricelist(id, article, name, bags_pallet) values
+insert into pg_temp.pricelist(id, article, name, bags_pallet) values
   ('231267-0030', '231267-0030', 'RINDAVITAL VK CLASSIC', 36),
   ('232120-0000', '232120-0000', 'MELOVIT FLÜSSIG (5 ltr.)', 0),
   ('232214-0025', '232214-0025', 'KALBI MILCH FIT', 40),
@@ -114,8 +114,12 @@ declare
       p.id::text = v.id or p.id::text = v.article or coalesce(p.code,'') = v.article
       or upper(regexp_replace(trim(p.name), '\s+', ' ', 'g')) = upper(v.name))$m$;
 begin
+  if to_regclass('public.products') is null then
+    raise exception 'Δεν βρέθηκε ο πίνακας public.products σε αυτό το project. Έλεγξε ότι είσαι στο σωστό project του Supabase (gyelvbcytckwpjecrcnr).';
+  end if;
+
   -- 1. Υπάρχοντα προϊόντα χωρίς τεμάχια ανά παλέτα: συμπλήρωση από τον τιμοκατάλογο.
-  execute 'update products p set bags_pallet = v.bags_pallet from pricelist v
+  execute 'update public.products p set bags_pallet = v.bags_pallet from pg_temp.pricelist v
            where coalesce(p.bags_pallet, 0) = 0 and not coalesce(p.no_pallet, false)
              and v.bags_pallet > 0 and ' || matches;
 
@@ -123,13 +127,13 @@ begin
   select data_type into idtype from information_schema.columns
    where table_schema = 'public' and table_name = 'products' and column_name = 'id';
   if idtype in ('text', 'character varying') then
-    execute 'insert into products(id, name, bags_pallet)
-             select v.id, v.name, v.bags_pallet from pricelist v
-             where not exists (select 1 from products p where ' || matches || ')';
+    execute 'insert into public.products(id, name, bags_pallet)
+             select v.id, v.name, v.bags_pallet from pg_temp.pricelist v
+             where not exists (select 1 from public.products p where ' || matches || ')';
   else
-    execute 'insert into products(name, bags_pallet)
-             select v.name, v.bags_pallet from pricelist v
-             where not exists (select 1 from products p where ' || matches || ')';
+    execute 'insert into public.products(name, bags_pallet)
+             select v.name, v.bags_pallet from pg_temp.pricelist v
+             where not exists (select 1 from public.products p where ' || matches || ')';
   end if;
 end $$;
 
