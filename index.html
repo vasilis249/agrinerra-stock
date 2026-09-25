@@ -168,6 +168,16 @@ tbody tr:hover{background:var(--raised)}
 .p-in{background:var(--ok-soft);color:var(--ok)}
 .p-out{background:var(--crit-soft);color:var(--crit)}
 .p-adj{background:var(--warn-soft);color:var(--warn)}
+/* αρίθμηση γραμμών σε κάθε πίνακα (οι κρυμμένες από την αναζήτηση δεν μετράνε) */
+.tw tbody{counter-reset:rn}
+.tw thead tr::before{content:"#";display:table-cell;position:sticky;top:0;z-index:2;background:var(--surface);
+  box-shadow:inset 0 -1px 0 var(--line);padding:9px 0 9px 12px;width:1%;text-align:right;
+  font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.08em;color:var(--faint)}
+.tw tbody tr::before{content:counter(rn);counter-increment:rn;display:table-cell;vertical-align:middle;text-align:right;
+  padding:10px 0 10px 12px;border-bottom:1px solid var(--line);color:var(--faint);font-family:"IBM Plex Mono";font-size:11px}
+.tw tbody tr:last-child::before{border-bottom:0}
+.tw tbody tr.sub::before{content:"";counter-increment:none}
+.tw tbody tr:has(.empty)::before{content:none}
 
 /* ---------- κινητό: κάθε γραμμή πίνακα γίνεται κάρτα ---------- */
 @media(max-width:640px){
@@ -190,6 +200,8 @@ tbody tr:hover{background:var(--raised)}
   .tw tbody tr{padding:12px 14px;border-bottom:1px solid var(--line)}
   .tw tbody tr:last-child{border-bottom:0}
   .tw tbody tr:hover{background:transparent}
+  .tw tbody tr{position:relative}
+  .tw tbody tr::before{position:absolute;top:3px;right:10px;display:block;padding:0;border:0;font-size:10px}
   .tw td{display:grid;grid-template-columns:minmax(96px,auto) 1fr;column-gap:12px;align-items:baseline;
     padding:3px 0;border:0;text-align:right}
   .tw td::before{content:attr(data-label);grid-column:1;grid-row:1 / span 4;align-self:start;text-align:left;
@@ -708,7 +720,9 @@ function batches(){
 }
 
 /* ---------- rendering ---------- */
+function byName(a,b){ return String(a.name||"").localeCompare(String(b.name||""),"el",{sensitivity:"base",numeric:true}); }
 function renderAll(){
+  products.sort(byName); customers.sort(byName);   /* αλφαβητικά παντού: πίνακες, λίστες επιλογής, αναζήτηση */
   renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderSuggest();
   var open=orders.filter(function(o){return o.status!=="ΠΑΡΕΛΗΦΘΗ";}).length;
   document.getElementById("cnt-moves").textContent=movements.length?movements.length:"";
@@ -970,8 +984,10 @@ function renderReservations(){
   var tb=document.querySelector("#resvTable tbody");
   var list=reservations.filter(inScope).sort(function(a,b){
     var ao=(a.status&&a.status!=="ΕΝΕΡΓΗ")?1:0, bo=(b.status&&b.status!=="ΕΝΕΡΓΗ")?1:0;
-    if(ao!==bo) return ao-bo;
-    return (a.until||"9999")<(b.until||"9999")?-1:1;
+    if(ao!==bo) return ao-bo;   /* ενεργές πρώτα, μετά αλφαβητικά πελάτης και προϊόν */
+    var pa=prod(a.product), pb=prod(b.product);
+    return String(custName(a.customer)).localeCompare(String(custName(b.customer)),"el",{sensitivity:"base"}) ||
+           String(pa?pa.name:a.product).localeCompare(String(pb?pb.name:b.product),"el",{sensitivity:"base"});
   });
   if(!list.length){
     tb.innerHTML='<tr><td colspan="8"><div class="empty"><b>Καμία δέσμευση</b>Όλο το απόθεμα είναι ελεύθερο προς πώληση.</div></td></tr>';
