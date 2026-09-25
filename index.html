@@ -55,7 +55,7 @@ h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;margin:0;text-wrap:balan
   position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
   background:var(--surface); border-bottom:1px solid var(--line);
 }
-.top-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top-in{max-width:1600px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:9px;margin-right:auto}
 .brand b{font-family:Archivo;font-weight:700;font-size:16px;letter-spacing:.02em}
 .brand span{color:var(--faint);font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-family:Archivo;font-weight:600}
@@ -112,7 +112,7 @@ h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;margin:0;text-wrap:balan
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ---------- layout ---------- */
-main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+main{max-width:1600px;margin:0 auto;padding:18px 16px 60px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .panel-head{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -138,7 +138,21 @@ main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
 /* ---------- table ---------- */
 .tw{overflow:auto;max-height:calc(100vh - 150px)}   /* ο πίνακας κυλά μέσα στο πλαίσιο, οι τίτλοι μένουν πάνω */
 table{border-collapse:collapse;width:100%;min-width:980px}
-#stockTable{min-width:1100px}
+/* Απόθεμα: χωράει στο πλάτος χωρίς οριζόντιο σκρολ· τα μεγέθη είναι σε em, ώστε το fitStock()
+   να μικραίνει όλο τον πίνακα αλλάζοντας μόνο το --st-fs */
+#stockTable{min-width:0;font-size:var(--st-fs,14px)}
+#stockTable th{white-space:normal;vertical-align:bottom;padding:8px 6px;font-size:.75em;letter-spacing:.04em;line-height:1.25}
+#stockTable td{padding:8px 6px}
+#stockTable td:first-child{min-width:9em}
+/* σε στενές οθόνες κρύβονται πρώτα οι στήλες που χρειάζονται λιγότερο */
+#stockTable.hide-1 .c-low1,#stockTable.hide-2 .c-low2,#stockTable.hide-3 .c-low3{display:none}
+#stockTable td:first-child,#stockTable th:first-child{padding-left:10px}
+#stockTable .sec{font-size:.82em}
+#stockTable .pcode{font-size:.78em}
+#stockTable .pill{font-size:.75em;padding:2px 6px}
+#stockTable .btn-sm{font-size:.84em;padding:4px 7px;white-space:nowrap}
+#stockTable thead tr::before{font-size:.75em;padding:8px 0 8px 8px}
+#stockTable tbody tr::before{font-size:.78em;padding:8px 0 8px 8px}
 th{
   font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--faint);text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
@@ -773,9 +787,49 @@ function renderStock(){
   var tb=document.querySelector("#stockTable tbody");
   if(!products.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
   var tv=0,tk=0,tt=0,tr=0,tp=0;
-  tb.innerHTML=products.map(function(p){
+  tb.innerHTML=products.map(stockRow).join("")
+    .replace(/(\d) (παλέτ|τεμ\.|€|ημ\.)/g,"$1&nbsp;$2");   /* ο αριθμός δεν χωρίζεται από τη μονάδα του */
+  products.forEach(function(p){
     var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tr+=m.reserved;
     if(perPallet(p)) tp+=m.stock/perPallet(p);
+  });
+  document.getElementById("stockTotals").innerHTML=
+    tile("Συνολικά τεμάχια",n(tk))+tile("Δεσμευμένα",n(tr))+tile("Διαθέσιμα",n(tk-tr))+
+    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Προβλεπόμενα",n(tk-tr+tt))+tile("Αξία αποθέματος",eur(tv));
+  document.getElementById("stockAsOf").textContent=
+    (CO?CO+" · ":"")+"Όπως είναι σήμερα, "+greekDate(today());
+  fitStock();
+}
+/* Μικραίνει τα γράμματα του πίνακα αποθέματος μέχρι να χωρέσει στο πλάτος (όχι κάτω από 9px).
+   Στο κινητό ο πίνακας είναι κάρτες, οπότε δεν χρειάζεται. */
+var STOCK_LOW=[["Αξία"],["Σημείο αναπαρ."],["Ημέρες κάλυψης","Τεμ./παλέτα"]];   /* με αυτή τη σειρά κρύβονται */
+function fitStock(){
+  var t=document.getElementById("stockTable"), box=t&&t.parentNode;
+  if(!box || !box.offsetWidth) return;   /* κρυφή καρτέλα: θα γίνει όταν ανοίξει */
+  t.classList.remove("hide-1","hide-2","hide-3");
+  if(window.matchMedia("(max-width:640px)").matches){ t.style.removeProperty("--st-fs"); return; }
+  var heads=Array.prototype.map.call(t.tHead.rows[0].cells,function(th){ return th.textContent.trim(); });
+  Array.prototype.forEach.call(t.rows,function(tr){
+    if(tr.cells.length!==heads.length) return;   /* κενή κατάσταση */
+    heads.forEach(function(h,i){
+      STOCK_LOW.forEach(function(g,k){ tr.cells[i].classList.toggle("c-low"+(k+1),g.indexOf(h)>=0); });
+    });
+  });
+  function over(){ return box.scrollWidth>box.clientWidth+1; }
+  var fs=14, level=0;
+  t.style.setProperty("--st-fs",fs+"px");
+  while(over()){
+    if(fs>10){ fs-=0.5; }                                    /* πρώτα μικραίνουν τα γράμματα */
+    else if(level<STOCK_LOW.length){ t.classList.add("hide-"+(++level)); fs=11; }   /* μόνο αν δεν φτάνει, φεύγει μια στήλη */
+    else if(fs>9){ fs-=0.5; }
+    else break;
+    t.style.setProperty("--st-fs",fs+"px");
+  }
+}
+var FIT_T=null;
+window.addEventListener("resize",function(){ clearTimeout(FIT_T); FIT_T=setTimeout(fitStock,120); });
+function stockRow(p){
+  var m=metrics(p);
     var pp=perPallet(p);
     return '<tr>'+
       '<td class="stripe s-'+m.status+'"><span class="pname">'+esc(p.name)+'</span><span class="pcode">'+esc(p.code||p.id)+'</span>'+bar(m)+'</td>'+
@@ -795,12 +849,6 @@ function renderStock(){
       '<td><span class="pill p-'+m.status+'">'+m.label+'</span></td>'+
       '<td><button class="btn btn-sm" data-stock-edit="'+esc(p.id)+'" title="Προσθήκη, αφαίρεση ή διόρθωση αποθέματος">± Απόθεμα</button></td>'+
     '</tr>';
-  }).join("");
-  document.getElementById("stockTotals").innerHTML=
-    tile("Συνολικά τεμάχια",n(tk))+tile("Δεσμευμένα",n(tr))+tile("Διαθέσιμα",n(tk-tr))+
-    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Προβλεπόμενα",n(tk-tr+tt))+tile("Αξία αποθέματος",eur(tv));
-  document.getElementById("stockAsOf").textContent=
-    (CO?CO+" · ":"")+"Όπως είναι σήμερα, "+greekDate(today());
 }
 function bar(m){
   var tot=m.stock; if(tot<=0) return "";
@@ -2215,7 +2263,7 @@ function exportCSV(){
 /* Ένα κουτί φιλτράρει όλες τις καρτέλες μαζί: προϊόντα, πελάτες, παρτίδες, αριθμούς
    παραγγελίας. Χωρίς τόνους και πεζά-κεφαλαία, ώστε «παπαδοπουλος» να βρίσκει «Παπαδόπουλος». */
 var Q="";
-function norm(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/ς/g,"σ"); }
+function norm(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\u00a0/g," ").toLowerCase().replace(/ς/g,"σ"); }
 function tabName(btn){ return btn.firstChild?btn.firstChild.textContent:""; }
 function applySearch(){
   var toks=norm(Q).split(/\s+/).filter(Boolean), counts={};
@@ -2368,6 +2416,7 @@ document.addEventListener("keydown",function(e){
 });
 
 /* ---------- events ---------- */
+document.getElementById("tabs").addEventListener("click",function(){ setTimeout(fitStock,0); });
 document.getElementById("tabs").addEventListener("click",function(e){
   var b=e.target.closest(".tab"); if(!b) return;
   Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(t){
