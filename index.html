@@ -102,6 +102,8 @@ h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif;margin:0;text-wrap:balan
 .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn-primary:hover{filter:brightness(1.1);color:#fff}
 .btn-sm{padding:5px 9px;font-size:12px;border-radius:6px}
+.hist-btn{font-size:16px;line-height:1;min-width:34px}
+.btn:disabled{opacity:.4;cursor:default;border-color:var(--line-strong);color:var(--ink)}
 .cosel{
   width:auto;font-family:Archivo;font-weight:600;font-size:12.5px;padding:7px 10px;
   border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
@@ -454,6 +456,8 @@ window.AGRINNERA_CONFIG = {
       <option value="INNERA">INNERA</option>
     </select>
     <span id="busy" class="busy" hidden>συγχρονισμός…</span>
+    <button class="btn btn-sm hist-btn" id="btnUndo" aria-label="Αναίρεση" title="Αναίρεση (Ctrl+Z)" disabled>↶</button>
+    <button class="btn btn-sm hist-btn" id="btnRedo" aria-label="Επανάληψη" title="Επανάληψη (Ctrl+Y)" disabled>↷</button>
     <button class="btn btn-sm" id="btnRefresh" title="Ξαναφέρνει τα δεδομένα από τη βάση">Ανανέωση</button>
     <button class="btn btn-sm" id="btnExport" title="Σώζει αντίγραφο ασφαλείας σε αρχείο HTML που ανοίγει χωρίς σύνδεση">Αντίγραφο</button>
     <span id="who" class="who"></span>
@@ -766,6 +770,7 @@ function renderAll(){
   var ar=activeResv().length;
   document.getElementById("cnt-resv").textContent=ar?ar:"";
   applySearch();
+  syncHistButtons();
 }
 
 function renderAlerts(){
@@ -2132,12 +2137,14 @@ function loadAll(){
 }
 
 function save(coll,rec,done){
+  var i0=idxOf(bucket(coll),rec.id), before=i0>=0?clone(bucket(coll)[i0]):null;
   busy(true);
   sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(MAP[coll].out(rec)),
     extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
   .then(function(){
     var arr=bucket(coll), i=idxOf(arr,rec.id);
     if(i>=0) arr[i]=rec; else arr.push(rec);
+    histRecord(coll,before,rec);
     renderAll(); busy(false); if(done) done();
   }).catch(function(e){
     busy(false);
@@ -2147,12 +2154,13 @@ function save(coll,rec,done){
 
 /* Πολλές εγγραφές σε ένα αίτημα: ή γράφονται όλες ή καμία. */
 function saveAll(coll,recs){
+  var befores=recs.map(function(r){ var i=idxOf(bucket(coll),r.id); return i>=0?clone(bucket(coll)[i]):null; });
   busy(true);
   return sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(recs.map(MAP[coll].out)),
     extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
   .then(function(){
     var arr=bucket(coll);
-    recs.forEach(function(r){ var i=idxOf(arr,r.id); if(i>=0) arr[i]=r; else arr.push(r); });
+    recs.forEach(function(r,k){ var i=idxOf(arr,r.id); if(i>=0) arr[i]=r; else arr.push(r); histRecord(coll,befores[k],r); });
     busy(false); renderAll();
   },function(e){
     busy(false);
@@ -2161,11 +2169,12 @@ function saveAll(coll,recs){
   });
 }
 function removeAll(coll,ids){
+  var befores=ids.map(function(id){ var i=idxOf(bucket(coll),id); return i>=0?clone(bucket(coll)[i]):null; });
   busy(true);
   var f=encodeURIComponent("("+ids.map(function(id){ return '"'+String(id).replace(/"/g,'')+'"'; }).join(",")+")");
   return sbFetch("/rest/v1/"+coll+"?id=in."+f,{method:"DELETE"}).then(function(){
     var arr=bucket(coll);
-    ids.forEach(function(id){ var i=idxOf(arr,id); if(i>=0) arr.splice(i,1); });
+    ids.forEach(function(id,k){ var i=idxOf(arr,id); if(i>=0) arr.splice(i,1); if(befores[k]) histRecord(coll,befores[k],null); });
     busy(false); renderAll();
   },function(e){ busy(false); toast("Η διαγραφή απέτυχε"); throw e; });
 }
@@ -2180,8 +2189,9 @@ function softDelete(items,msg){
   items.forEach(function(it){
     var arr=bucket(it.coll), i=idxOf(arr,it.rec.id); it.at=i; if(i>=0) arr.splice(i,1);
   });
-  renderAll();
   var job={items:items};
+  items.forEach(function(it){ job.hist=histRecord(it.coll,it.rec,null)||job.hist; });
+  renderAll();
   job.timer=setTimeout(commitPending,UNDO_MS);
   PENDING=job;
   undoToast(msg,function(){ undoPending(job); });
@@ -2197,6 +2207,7 @@ function undoPending(job){
     var arr=bucket(it.coll); if(idxOf(arr,it.rec.id)>=0) return;
     arr.splice(it.at>=0?Math.min(it.at,arr.length):arr.length,0,it.rec);
   });
+  histDrop(job.hist);   /* δεν έγινε ποτέ, οπότε φεύγει και από το ιστορικό */
   renderAll(); toast("Επαναφέρθηκε");
 }
 function commitPending(){
@@ -2213,6 +2224,7 @@ function commitPending(){
     job.items.forEach(function(it){
       var arr=bucket(it.coll); if(!it.done && idxOf(arr,it.rec.id)<0) arr.push(it.rec);
     });
+    histDrop(job.hist);
     renderAll(); toast("Η διαγραφή απέτυχε — η εγγραφή επανήλθε. Δοκίμασε ξανά.");
   });
 }
@@ -2232,10 +2244,82 @@ window.addEventListener("pagehide",function(){
     try{ fetch(SB.url+"/rest/v1/"+it.coll+"?id=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
   });
 });
+
+/* ---------- αναίρεση / επανάληψη, ως 10 βήματα ---------- */
+/* Κάθε αποθήκευση και διαγραφή κρατά την εγγραφή πριν και μετά. Ό,τι γράφεται από ένα
+   πάτημα του χρήστη (π.χ. αποστολή = πώληση + κλείσιμο δέσμευσης) είναι ένα βήμα.
+   Αναίρεση = ξαναγράφεται το «πριν»· επανάληψη = ξαναγράφεται το «μετά».
+   Το ιστορικό κρατιέται όσο είναι ανοιχτή η σελίδα. */
+var HIST_MAX=10, UNDO_STACK=[], REDO_STACK=[], HIST_CUR=null, HIST_BUSY=false;
+var HIST_WORD={movements:"κίνησης",reservations:"δέσμευσης",orders:"παραγγελίας",products:"προϊόντος",customers:"πελάτη"};
+function clone(o){ return o?JSON.parse(JSON.stringify(o)):null; }
+["pointerdown","keydown"].forEach(function(ev){
+  document.addEventListener(ev,function(){ HIST_CUR=null; },true);   /* νέο πάτημα = νέο βήμα */
+});
+function histRecord(coll,before,after){
+  if(HIST_BUSY) return null;
+  if(!HIST_CUR){
+    HIST_CUR={ops:[]}; UNDO_STACK.push(HIST_CUR);
+    if(UNDO_STACK.length>HIST_MAX) UNDO_STACK.shift();
+    REDO_STACK.length=0;
+  }
+  HIST_CUR.ops.push({coll:coll,before:clone(before),after:clone(after)});
+  syncHistButtons();
+  return HIST_CUR;
+}
+function histDrop(h){ var i=UNDO_STACK.indexOf(h); if(i>=0) UNDO_STACK.splice(i,1); if(HIST_CUR===h) HIST_CUR=null; syncHistButtons(); }
+function histLabel(h){
+  var o=h.ops[0], w=HIST_WORD[o.coll]||"εγγραφής";
+  return (!o.before?"καταχώρηση "+w:!o.after?"διαγραφή "+w:"αλλαγή "+w)+(h.ops.length>1?" και "+(h.ops.length-1)+" ακόμα":"");
+}
+function syncHistButtons(){
+  var u=document.getElementById("btnUndo"), r=document.getElementById("btnRedo"); if(!u) return;
+  var last=UNDO_STACK[UNDO_STACK.length-1], next=REDO_STACK[REDO_STACK.length-1];
+  u.disabled=HIST_BUSY||(!PENDING&&!last); r.disabled=HIST_BUSY||!next;
+  u.title=PENDING?"Αναίρεση διαγραφής (Ctrl+Z)":last?"Αναίρεση: "+histLabel(last)+" (Ctrl+Z) · "+UNDO_STACK.length+(UNDO_STACK.length===1?" βήμα":" βήματα"):"Τίποτα για αναίρεση";
+  r.title=next?"Επανάληψη: "+histLabel(next)+" (Ctrl+Y)":"Τίποτα για επανάληψη";
+}
+/* γράφει στη βάση μία-μία τις εγγραφές (rec) ή τις σβήνει (rec=null) και ενημερώνει τη μνήμη */
+function histApply(ops){
+  return ops.reduce(function(pr,op){
+    return pr.then(function(){
+      var arr=bucket(op.coll);
+      if(op.rec) return sbFetch("/rest/v1/"+op.coll,{method:"POST",body:JSON.stringify(MAP[op.coll].out(op.rec)),
+          extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+        .then(function(){ var i=idxOf(arr,op.id), r=clone(op.rec); if(i>=0) arr[i]=r; else arr.push(r); });
+      return sbFetch("/rest/v1/"+op.coll+"?id=eq."+encodeURIComponent(op.id),{method:"DELETE"})
+        .then(function(){ var i=idxOf(arr,op.id); if(i>=0) arr.splice(i,1); });
+    });
+  },Promise.resolve());
+}
+function histRun(undo){
+  if(HIST_BUSY) return;
+  if(undo && PENDING){ undoPending(PENDING); return; }   /* πρώτα η διαγραφή που περιμένει */
+  var from=undo?UNDO_STACK:REDO_STACK, to=undo?REDO_STACK:UNDO_STACK, h=from[from.length-1];
+  if(!h){ toast(undo?"Δεν υπάρχει κάτι για αναίρεση":"Δεν υπάρχει κάτι για επανάληψη"); return; }
+  HIST_BUSY=true; HIST_CUR=null; syncHistButtons(); busy(true);
+  commitPending().then(function(){
+    var ops=(undo?h.ops.slice().reverse():h.ops).map(function(o){
+      return {coll:o.coll,rec:undo?o.before:o.after,id:(o.before||o.after).id};
+    });
+    return histApply(ops);
+  }).then(function(){
+    from.pop(); to.push(h);
+    toast((undo?"Αναιρέθηκε: ":"Έγινε ξανά: ")+histLabel(h));
+  },function(){
+    UNDO_STACK.length=0; REDO_STACK.length=0;
+    toast("Δεν έγινε "+(undo?"η αναίρεση":"η επανάληψη")+". Ξαναφορτώνω τα δεδομένα.");
+    loadAll().catch(function(){});
+  }).then(function(){ HIST_BUSY=false; busy(false); renderAll(); syncHistButtons(); });
+}
+document.getElementById("btnUndo").onclick=function(){ histRun(true); };
+document.getElementById("btnRedo").onclick=function(){ histRun(false); };
 document.addEventListener("keydown",function(e){
-  if(!PENDING || !(e.ctrlKey||e.metaKey) || (e.key!=="z"&&e.key!=="Z"&&e.code!=="KeyZ")) return;
-  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  e.preventDefault(); undoPending(PENDING);
+  if(!(e.ctrlKey||e.metaKey) || e.altKey || document.getElementById("app").hidden) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || document.getElementById("modal").firstChild) return;
+  var k=String(e.key||"").toLowerCase(), z=(k==="z"||e.code==="KeyZ"), y=(k==="y"||e.code==="KeyY");
+  if(z && !e.shiftKey){ e.preventDefault(); histRun(true); }
+  else if(y || (z && e.shiftKey)){ e.preventDefault(); histRun(false); }
 });
 
 /* ---------- εξαγωγές ---------- */
