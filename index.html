@@ -444,6 +444,7 @@ window.AGRINNERA_CONFIG = {
       <button class="tab" role="tab" data-tab="orders" aria-selected="false">Παραγγελίες<span class="cnt" id="cnt-orders"></span></button>
       <button class="tab" role="tab" data-tab="batches" aria-selected="false">Παρτίδες<span class="cnt" id="cnt-batches"></span></button>
       <button class="tab" role="tab" data-tab="products" aria-selected="false">Προϊόντα</button>
+      <button class="tab" role="tab" data-tab="customers" aria-selected="false">Πελάτες</button>
     </nav>
     <select id="coFilter" class="cosel" aria-label="Εταιρεία">
       <option value="">Όλες οι εταιρείες</option>
@@ -592,6 +593,23 @@ window.AGRINNERA_CONFIG = {
       <p class="note">Όλες οι ποσότητες του συστήματος είναι σε τεμάχια· η παλέτα προκύπτει από τα τεμάχια ανά παλέτα. Η μηνιαία ζήτηση είναι το ετήσιο σύνολο του demand plan διά 12. Όταν ξαναϋπολογίσεις το πλάνο, ενημέρωσέ τη εδώ και τα σημεία αναπαραγγελίας προσαρμόζονται μόνα τους.</p>
     </div>
   </section>
+
+  <section id="tab-customers" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Πελάτες</h2>
+        <span class="sub">Σε ποιον δεσμεύεις και πουλάς</span>
+        <button class="btn btn-sm btn-primary" id="newCust">+ Νέος πελάτης</button>
+      </div>
+      <div class="tw"><table id="custTable">
+        <thead><tr>
+          <th>Πελάτης</th><th>Ενεργές δεσμεύσεις</th><th>Πωλήσεις</th><th>Τελευταία πώληση</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note">Πελάτης με πωλήσεις ή δεσμεύσεις δεν διαγράφεται, για να μείνει το ιστορικό και η ιχνηλασιμότητα των παρτίδων. Η αλλαγή ονόματος φαίνεται αμέσως παντού.</p>
+    </div>
+  </section>
 </main>
 
 </div>
@@ -737,7 +755,7 @@ function batches(){
 function byName(a,b){ return String(a.name||"").localeCompare(String(b.name||""),"el",{sensitivity:"base",numeric:true}); }
 function renderAll(){
   products.sort(byName); customers.sort(byName);   /* αλφαβητικά παντού: πίνακες, λίστες επιλογής, αναζήτηση */
-  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderSuggest();
+  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderCustomers(); renderSuggest();
   var open=orders.filter(function(o){return o.status!=="ΠΑΡΕΛΗΦΘΗ";}).length;
   document.getElementById("cnt-moves").textContent=movements.length?movements.length:"";
   document.getElementById("cnt-orders").textContent=open?open:"";
@@ -1061,7 +1079,8 @@ function renderReservations(){
       '<td><span class="num">'+(r.until?greekDate(r.until):"—")+'</span>'+
         (open&&d!==null?'<span class="sec">'+(d<0?"πέρασε "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
       '<td>'+pill+'</td>'+
-      '<td>'+(open?'<button class="btn btn-sm" data-ship="'+esc(r.id)+'">Αποστολή</button> '+
+      '<td style="white-space:nowrap">'+(open?'<button class="btn btn-sm" data-ship="'+esc(r.id)+'">Αποστολή</button> '+
+                    '<button class="btn btn-sm" data-edit-resv="'+esc(r.id)+'" title="Τροποποίηση δέσμευσης">✎</button> '+
                     '<button class="btn btn-sm btn-ghost" data-cancel-resv="'+esc(r.id)+'">✕</button>'
                   :(r.status==="ΕΚΤΕΛΕΣΤΗΚΕ"?'<button class="btn btn-sm" data-note="'+esc(r.id)+'" title="Εκτυπώσιμο δελτίο αποστολής">Δελτίο</button> ':'')+
                    '<button class="btn btn-sm btn-ghost" data-del-resv="'+esc(r.id)+'">✕</button>')+'</td>'+
@@ -1466,29 +1485,32 @@ function moveForm(preset){
 }
 
 /* ----- reservation form ----- */
-function resvForm(){
-  openModal('<h2>Νέα δέσμευση</h2><p class="hint">Κρατάει εμπόρευμα για συγκεκριμένο πελάτη. Το φυσικό απόθεμα δεν αλλάζει, το διαθέσιμο μειώνεται.</p>'+
+function resvForm(rid){
+  var r0=rid?reservations[idxOf(reservations,rid)]:null;
+  if(rid&&!r0) return;
+  var v=r0||{date:today(),owner:CO||"AGRINERRA",until:"",customer:"",product:"",qty_kg:"",batch:"",note:""};
+  openModal('<h2>'+(r0?'Τροποποίηση δέσμευσης':'Νέα δέσμευση')+'</h2><p class="hint">Κρατάει εμπόρευμα για συγκεκριμένο πελάτη. Το φυσικό απόθεμα δεν αλλάζει, το διαθέσιμο μειώνεται.</p>'+
   '<form id="rvf">'+
     '<div class="grid3">'+
-      '<label>Ημερομηνία<input type="date" id="rvDate" value="'+today()+'" required></label>'+
+      '<label>Ημερομηνία<input type="date" id="rvDate" value="'+esc(v.date||today())+'" required></label>'+
       '<label>Εταιρεία<select id="rvOwner" required>'+COMPANIES.map(function(c){
-        return '<option value="'+c+'"'+(c===(CO||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
-      '<label>Κρατείται έως<input type="date" id="rvUntil"></label>'+
+        return '<option value="'+c+'"'+(c===(v.owner||"AGRINERRA")?" selected":"")+'>'+c+'</option>'; }).join("")+'</select></label>'+
+      '<label>Κρατείται έως<input type="date" id="rvUntil" value="'+esc(v.until||"")+'"></label>'+
     '</div>'+
     '<div class="grid2">'+
       '<label>Πελάτης<select id="rvCustomer" required><option value="">Διάλεξε πελάτη</option>'+
-        customers.map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("")+'</select></label>'+
-      '<label>Προϊόν<select id="rvProduct" required>'+productOptions()+'</select></label>'+
+        customers.map(function(c){ return '<option value="'+esc(c.id)+'"'+(c.id===v.customer?" selected":"")+'>'+esc(c.name)+'</option>'; }).join("")+'</select></label>'+
+      '<label>Προϊόν<select id="rvProduct" required>'+productOptions(v.product)+'</select></label>'+
     '</div>'+
     '<div class="grid2">'+
-      '<label>Τεμάχια<input type="number" id="rvQty" min="1" step="1" required></label>'+
-      '<label>Παρτίδα (προαιρετικά)<input type="text" id="rvBatch" list="rvBatchList" placeholder="όλες"></label>'+
+      '<label>Τεμάχια<input type="number" id="rvQty" min="1" step="1" required value="'+esc(v.qty_kg)+'"></label>'+
+      '<label>Παρτίδα (προαιρετικά)<input type="text" id="rvBatch" list="rvBatchList" placeholder="όλες" value="'+esc(v.batch||"")+'"></label>'+
     '</div>'+
     '<datalist id="rvBatchList"></datalist>'+
-    '<label>Σημείωση<input type="text" id="rvNote" placeholder="π.χ. συμφωνία τιμής, αναμονή πληρωμής"></label>'+
+    '<label>Σημείωση<input type="text" id="rvNote" placeholder="π.χ. συμφωνία τιμής, αναμονή πληρωμής" value="'+esc(v.note||"")+'"></label>'+
     '<p class="calc" id="rvCalc"></p>'+
     '<div class="acts"><button type="button" class="btn" id="rvCancel">Ακύρωση</button>'+
-    '<button type="submit" class="btn btn-primary">Δέσμευση</button></div>'+
+    '<button type="submit" class="btn btn-primary">'+(r0?'Αποθήκευση':'Δέσμευση')+'</button></div>'+
   '</form>');
   function wantedKg(){ return parseFloat(document.getElementById("rvQty").value)||0; }
   function sync(){
@@ -1498,7 +1520,10 @@ function resvForm(){
     document.getElementById("rvBatchList").innerHTML=batches().filter(function(b){
       return b.product===pid && b.balance>0.5; }).map(function(b){
       return '<option value="'+esc(b.batch)+'">υπόλοιπο '+n(b.balance)+'</option>'; }).join("");
-    var m=metricsFor(p,document.getElementById("rvOwner").value), q=wantedKg(), after=m.free-q;
+    var own=document.getElementById("rvOwner").value, m=metricsFor(p,own), q=wantedKg();
+    /* στην τροποποίηση, η ίδια η δέσμευση δεν μετράει ως δεσμευμένη */
+    var free=m.free+(r0&&r0.product===pid&&(r0.owner||"")===own?(r0.qty_kg||0):0), after=free-q;
+    m={free:free};
     var out=(pk?"1 παλέτα = <b>"+pk+" τεμάχια</b> · ":"")+"Διαθέσιμα <b>"+qty(p,m.free)+"</b>"+(pk?" ("+pcs(m.free)+")":"");
     if(q>0) out+="<br>Δεσμεύεις <b>"+pcs(q)+"</b>"+(pk?" = "+qty(p,q):"")+" → μένουν <b>"+qty(p,after)+"</b> διαθέσιμα";
     if(q>0&&after<0) out+=' · <span style="color:var(--crit)">δεσμεύεις περισσότερα από όσα έχεις ελεύθερα</span>';
@@ -1511,7 +1536,8 @@ function resvForm(){
   document.getElementById("rvf").addEventListener("submit",function(e){
     e.preventDefault();
     var pid=document.getElementById("rvProduct").value, p=prod(pid), pk=perPallet(p), q=Math.round(wantedKg());
-    var rec={ id:uid("r"), date:document.getElementById("rvDate").value,
+    var rec={}; if(r0) for(var k in r0) rec[k]=r0[k];
+    var upd={ id:r0?r0.id:uid("r"), date:document.getElementById("rvDate").value,
       owner:document.getElementById("rvOwner").value,
       until:document.getElementById("rvUntil").value||"",
       customer:document.getElementById("rvCustomer").value,
@@ -1520,9 +1546,10 @@ function resvForm(){
       pallets: pk?Math.round(q/pk*100)/100:0,   /* πληροφοριακά· η ποσότητα είναι τα τεμάχια */
       bags: 0,
       batch:document.getElementById("rvBatch").value.trim(),
-      note:document.getElementById("rvNote").value.trim(), status:"ΕΝΕΡΓΗ" };
+      note:document.getElementById("rvNote").value.trim(), status:r0?(r0.status||"ΕΝΕΡΓΗ"):"ΕΝΕΡΓΗ" };
+    for(var u in upd) rec[u]=upd[u];
     if(rec.qty_kg<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
-    save("reservations",rec,function(){ toast("Η ποσότητα δεσμεύτηκε"); closeModal(); });
+    save("reservations",rec,function(){ toast(r0?"Η δέσμευση ενημερώθηκε":"Η ποσότητα δεσμεύτηκε"); closeModal(); });
   });
 }
 function shipResv(id){
@@ -1832,6 +1859,69 @@ function receiveForm(oid){
     });
   });
 }
+
+/* ----- πελάτες ----- */
+function custUse(cid){
+  var r=activeResv().filter(function(x){ return x.customer===cid; }).length;
+  var allR=reservations.filter(function(x){ return x.customer===cid; }).length;
+  var sales=movements.filter(function(m){ return m.party===cid && m.type==="ΠΩΛΗΣΗ" && inScope(m); });
+  var any=movements.filter(function(m){ return m.party===cid; }).length;
+  var last=""; sales.forEach(function(m){ if(m.date>last) last=m.date; });
+  return {active:r,resv:allR,sales:sales.length,moves:any,last:last};
+}
+function renderCustomers(){
+  var tb=document.querySelector("#custTable tbody"); if(!tb) return;
+  if(!customers.length){ tb.innerHTML='<tr><td colspan="5"><div class="empty"><b>Κανένας πελάτης</b>Πάτα «+ Νέος πελάτης».</div></td></tr>'; return; }
+  tb.innerHTML=customers.map(function(c){
+    var u=custUse(c.id);
+    return '<tr>'+
+      '<td><span class="pname">'+esc(c.name)+'</span></td>'+
+      '<td class="num">'+(u.active?'<span class="v-resv">'+u.active+'</span>':'—')+'</td>'+
+      '<td class="num">'+(u.sales||'—')+'</td>'+
+      '<td class="num">'+greekDate(u.last)+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn btn-sm" data-edit-cust="'+esc(c.id)+'">Επεξεργασία</button> '+
+        '<button class="btn btn-sm btn-ghost" data-del-cust="'+esc(c.id)+'" title="Διαγραφή πελάτη">✕</button></td>'+
+    '</tr>';
+  }).join("");
+}
+function custForm(cid){
+  var c=cid?customers[idxOf(customers,cid)]:null;
+  if(cid&&!c) return;
+  openModal('<h2>'+(c?'Επεξεργασία πελάτη':'Νέος πελάτης')+'</h2>'+
+    '<p class="hint">'+(c?'Το νέο όνομα φαίνεται αμέσως σε δεσμεύσεις, κινήσεις και δελτία.':'Μετά τον βρίσκεις στη λίστα πελατών της δέσμευσης και της πώλησης.')+'</p>'+
+    '<form id="cf"><label>Όνομα<input type="text" id="cfName" required value="'+esc(c?c.name:"")+'" placeholder="π.χ. Κτηνοτροφική Λάρισας"></label>'+
+    '<div class="acts"><button type="button" class="btn" id="cfCancel">Ακύρωση</button>'+
+    '<button type="submit" class="btn btn-primary">'+(c?'Αποθήκευση':'Προσθήκη')+'</button></div></form>');
+  document.getElementById("cfCancel").onclick=closeModal;
+  document.getElementById("cf").addEventListener("submit",function(e){
+    e.preventDefault();
+    var name=document.getElementById("cfName").value.trim().replace(/\s+/g," ");
+    if(!name){ toast("Γράψε όνομα πελάτη"); return; }
+    var twin=customers.filter(function(x){ return (!c||x.id!==c.id) && norm(x.name)===norm(name); })[0];
+    if(twin){ toast("Υπάρχει ήδη πελάτης «"+twin.name+"»"); return; }
+    save("customers",{id:c?c.id:uid("c"),name:name},function(){ toast(c?"Αποθηκεύτηκε":"Ο πελάτης προστέθηκε"); closeModal(); });
+  });
+}
+/* Διαγράφεται μόνο πελάτης χωρίς πωλήσεις και δεσμεύσεις. */
+function deleteCustomer(cid){
+  var c=customers[idxOf(customers,cid)]; if(!c) return;
+  var u=custUse(cid);
+  if(u.moves||u.resv){
+    var what=[]; if(u.moves) what.push(u.moves+(u.moves===1?" κίνηση":" κινήσεις")); if(u.resv) what.push(u.resv+(u.resv===1?" δέσμευση":" δεσμεύσεις"));
+    toast("Ο «"+c.name+"» έχει "+what.join(", ")+" και δεν διαγράφεται.");
+    return;
+  }
+  deleteRecord("customers",cid,"Ο «"+c.name+"» διαγράφηκε");
+}
+document.getElementById("newCust").onclick=function(){ custForm(); };
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-edit-resv]"); if(b) resvForm(b.getAttribute("data-edit-resv"));
+});
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-edit-cust],[data-del-cust]"); if(!el) return;
+  if(el.hasAttribute("data-edit-cust")) custForm(el.getAttribute("data-edit-cust"));
+  else deleteCustomer(el.getAttribute("data-del-cust"));
+});
 
 /* ----- product form ----- */
 function prodForm(pid){
@@ -2431,7 +2521,7 @@ document.getElementById("btnExport").onclick=exportAll;
 document.getElementById("btnCsv").onclick=exportCSV;
 document.getElementById("newMove").onclick=function(){ moveForm(); };
 document.getElementById("newMove2").onclick=function(){ moveForm(); };
-document.getElementById("newResv").onclick=resvForm;
+document.getElementById("newResv").onclick=function(){ resvForm(); };
 document.getElementById("newOrder").onclick=function(){ orderForm(); };
 document.getElementById("ordersXlsx").onclick=function(){
   var lines=[]; orderGroups(orders.filter(inScope)).forEach(function(g){ lines=lines.concat(g.lines); });
