@@ -554,6 +554,7 @@ window.AGRINNERA_CONFIG = {
       <div class="panel-head">
         <h2>Προϊόντα</h2>
         <span class="sub">Συσκευασία, χρόνος παράδοσης και μηνιαία ζήτηση από το demand plan</span>
+        <button class="btn btn-sm btn-primary" id="newProd">+ Νέο προϊόν</button>
       </div>
       <div class="tw"><table id="prodTable">
         <thead><tr>
@@ -1018,7 +1019,8 @@ function renderProducts(){
       '<td class="num">'+n(p.lead_weeks)+'</td>'+
       '<td class="num">'+n(p.monthly_kg)+'</td>'+
       '<td class="num">'+(p.moq?qty(p,p.moq):'—')+'</td>'+
-      '<td><button class="btn btn-sm" data-edit-prod="'+esc(p.id)+'">Επεξεργασία</button></td>'+
+      '<td style="white-space:nowrap"><button class="btn btn-sm" data-edit-prod="'+esc(p.id)+'">Επεξεργασία</button> '+
+        '<button class="btn btn-sm btn-ghost" data-del-prod="'+esc(p.id)+'" title="Διαγραφή προϊόντος">✕</button></td>'+
     '</tr>';
   }).join("");
   // keep the movement filter list in sync
@@ -1769,9 +1771,14 @@ function receiveForm(oid){
 
 /* ----- product form ----- */
 function prodForm(pid){
-  var p=prod(pid); if(!p) return;
-  openModal('<h2>'+esc(p.name)+'</h2><p class="hint">'+esc(p.code||p.id)+'</p>'+
+  var isNew=!pid, p=isNew?{id:"",code:"",name:"",bags_pallet:0,no_pallet:false,price_eur_kg:0,lead_weeks:4,monthly_kg:0,moq:0}:prod(pid);
+  if(!p) return;
+  openModal('<h2>'+(isNew?'Νέο προϊόν':esc(p.name))+'</h2><p class="hint">'+(isNew?'Όνομα και τεμάχια ανά παλέτα αρκούν· τα υπόλοιπα συμπληρώνονται και αργότερα.':esc(p.code||p.id))+'</p>'+
   '<form id="pf">'+
+    '<div class="grid2">'+
+      '<label>Όνομα<input type="text" id="pfName" required value="'+esc(p.name)+'" placeholder="π.χ. RINDAVITAL VK"></label>'+
+      '<label>Κωδικός<input type="text" id="pfCode" value="'+esc(p.code||"")+'" placeholder="π.χ. 326156-0025 (προαιρετικά)"></label>'+
+    '</div>'+
     '<div class="grid2">'+
       '<label>Τεμάχια ανά παλέτα<input type="number" id="pfBags" step="1" min="0" value="'+(p.bags_pallet||"")+'" placeholder="π.χ. 36"></label>'+
       '<label>Τιμή αγοράς (€ ανά τεμάχιο)<input type="number" id="pfPrice" step="0.01" min="0" value="'+(p.price_eur_kg||0)+'"></label>'+
@@ -1805,15 +1812,38 @@ function prodForm(pid){
   document.getElementById("pf").addEventListener("submit",function(e){
     e.preventDefault();
     var rec={}; for(var k in p) rec[k]=p[k];
+    rec.name=document.getElementById("pfName").value.trim().replace(/\s+/g," ");
+    rec.code=document.getElementById("pfCode").value.trim();
+    if(!rec.name){ toast("Γράψε όνομα προϊόντος"); return; }
+    var twin=products.filter(function(x){ return x.id!==p.id && x.name.toUpperCase()===rec.name.toUpperCase(); })[0];
+    if(twin){ toast("Υπάρχει ήδη προϊόν με όνομα «"+twin.name+"»"); return; }
+    if(isNew) rec.id=(rec.code && !prod(rec.code)) ? rec.code : uid("p");
     rec.no_pallet=document.getElementById("pfNoPal").checked;
     rec.bags_pallet=rec.no_pallet?0:(parseFloat(document.getElementById("pfBags").value)||0);
     rec.price_eur_kg=parseFloat(document.getElementById("pfPrice").value)||0;
     rec.lead_weeks=parseFloat(document.getElementById("pfLead").value)||0;
     rec.monthly_kg=parseFloat(document.getElementById("pfMonthly").value)||0;
     rec.moq=parseFloat(document.getElementById("pfMoq").value)||0;
-    save("products",rec,function(){ toast("Αποθηκεύτηκε"); closeModal(); });
+    save("products",rec,function(){ toast(isNew?"Το προϊόν προστέθηκε":"Αποθηκεύτηκε"); closeModal(); });
   });
 }
+/* Διαγράφεται μόνο προϊόν χωρίς ιστορικό· αλλιώς θα χάνονταν κινήσεις, παραγγελίες και δεσμεύσεις. */
+function deleteProduct(pid){
+  var p=prod(pid); if(!p) return;
+  function uses(list){ return list.filter(function(x){ return x.product===pid; }).length; }
+  var m=uses(movements), o=uses(orders), r=uses(reservations);
+  if(m||o||r){
+    var what=[]; if(m) what.push(m+(m===1?" κίνηση":" κινήσεις")); if(o) what.push(o+(o===1?" παραγγελία":" παραγγελίες"));
+    if(r) what.push(r+(r===1?" δέσμευση":" δεσμεύσεις"));
+    toast("Το «"+p.name+"» έχει "+what.join(", ")+" και δεν διαγράφεται. Σβήσε πρώτα αυτές.");
+    return;
+  }
+  deleteRecord("products",pid,"Το «"+p.name+"» διαγράφηκε");
+}
+document.getElementById("newProd").onclick=function(){ prodForm(); };
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-del-prod]"); if(b) deleteProduct(b.getAttribute("data-del-prod"));
+});
 
 /* ---------- Supabase: σύνδεση, δεδομένα ---------- */
 var SB={ url:(window.AGRINNERA_CONFIG||{}).url||"", key:(window.AGRINNERA_CONFIG||{}).key||"",
