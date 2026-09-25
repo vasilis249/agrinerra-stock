@@ -483,7 +483,7 @@ window.AGRINNERA_CONFIG = {
         <tbody></tbody>
       </table></div>
       <div class="totals" id="resvTotals"></div>
-      <p class="note">Οι δεσμεύσεις γίνονται σε <b>ολόκληρες παλέτες</b>. Τα τεμάχια ανά παλέτα ορίζονται ανά προϊόν στην καρτέλα Προϊόντα· μόνο για προϊόντα χωρίς ορισμένη παλέτα ζητούνται τεμάχια. Η δέσμευση δεν μειώνει το φυσικό απόθεμα — το εμπόρευμα είναι ακόμα στην αποθήκη. Μειώνει το διαθέσιμο, ώστε να μην το υποσχεθείς σε δεύτερο πελάτη. Όταν φύγει πραγματικά, πάτα «Αποστολή» και γράφεται η πώληση με κλείσιμο της δέσμευσης.</p>
+      <p class="note">Οι δεσμεύσεις γίνονται σε <b>παλέτες ή μισές παλέτες</b> (0,5 = τα μισά τεμάχια της παλέτας). Τα τεμάχια ανά παλέτα ορίζονται ανά προϊόν στην καρτέλα Προϊόντα· μόνο για προϊόντα χωρίς ορισμένη παλέτα ζητούνται τεμάχια. Η δέσμευση δεν μειώνει το φυσικό απόθεμα — το εμπόρευμα είναι ακόμα στην αποθήκη. Μειώνει το διαθέσιμο, ώστε να μην το υποσχεθείς σε δεύτερο πελάτη. Όταν φύγει πραγματικά, πάτα «Αποστολή» και γράφεται η πώληση με κλείσιμο της δέσμευσης.</p>
     </div>
   </section>
 
@@ -609,6 +609,10 @@ function palText(p,v){
   return out.join(" + ");
 }
 function qty(p,v){ return palText(p,v)||pcs(v); }
+/* παλέτες σε βήματα μισής: 0,5 παλέτα = τα μισά τεμάχια, στρογγυλεμένα σε ολόκληρο τεμάχιο */
+function palPcs(pal,pp){ return Math.round(pal*pp); }
+function palWord(v){ return n1(v)+(v>0&&v<=1?" παλέτα":" παλέτες"); }
+function halfDown(v){ return Math.floor(v*2+1e-9)/2; }
 function inScope(o){ return !CO || (o.owner||"")===CO; }
 function findOrder(id){ for(var i=0;i<orders.length;i++) if(orders[i].id===id) return orders[i]; return null; }
 function prod(id){ for(var i=0;i<products.length;i++) if(products[i].id===id) return products[i]; return null; }
@@ -1129,7 +1133,7 @@ function moveForm(preset){
       '<label>Προϊόν<select id="mfProduct" required>'+productOptions(preset.product)+'</select></label>'+
     '</div>'+
     '<div class="grid2">'+
-      '<label id="mfQtyLabel">Παλέτες<input type="number" id="mfPal" min="0" step="1" value=""></label>'+
+      '<label id="mfQtyLabel">Παλέτες<input type="number" id="mfPal" min="0" step="0.5" value=""></label>'+
       '<label id="mfPcsLabel">+ Τεμάχια<input type="number" id="mfQty" min="0" step="1" value="'+(preset.qty||"")+'"></label>'+
     '</div>'+
     '<div class="grid2">'+
@@ -1171,7 +1175,7 @@ function moveForm(preset){
     var p=prod(document.getElementById("mfProduct").value), pp=perPallet(p);
     var pal=parseFloat(document.getElementById("mfPal").value)||0;
     var t=parseFloat(document.getElementById("mfQty").value)||0;
-    return pal*pp + t;
+    return palPcs(pal,pp) + t;
   }
   function syncType(){
     var t=typeOf(cur);
@@ -1197,7 +1201,11 @@ function moveForm(preset){
     if(!p){ document.getElementById("mfCalc").innerHTML=""; return; }
     var pp=perPallet(p), q=wantedPcs(), cs=stockOf(pid), t=typeOf(cur), out="";
     document.getElementById("mfQtyLabel").hidden=!pp;
-    if(pp) out="1 παλέτα = <b>"+pp+" τεμάχια</b><br>";
+    if(pp){
+      var palIn=parseFloat(document.getElementById("mfPal").value)||0;
+      out="1 παλέτα = <b>"+pp+" τεμάχια</b>"+
+        (palIn%1?" · "+palWord(palIn)+" = <b>"+n(palPcs(palIn,pp))+" τεμάχια</b>":"")+"<br>";
+    }
     if(cur==="ΑΠΟΓΡΑΦΗ"){
       var diff=q-cs;
       out+="Καταγεγραμμένα <b>"+qty(p,cs)+"</b> · μέτρησες <b>"+qty(p,q)+"</b> · διαφορά <b>"+
@@ -1259,7 +1267,7 @@ function resvForm(){
       '<label>Προϊόν<select id="rvProduct" required>'+productOptions()+'</select></label>'+
     '</div>'+
     '<div class="grid2" id="rvPalRow">'+
-      '<label>Παλέτες<input type="number" id="rvPal" min="1" step="1" value="1"></label>'+
+      '<label>Παλέτες<input type="number" id="rvPal" min="0.5" step="0.5" value="1"></label>'+
       '<label>Παρτίδα (προαιρετικά)<input type="text" id="rvBatch" list="rvBatchList" placeholder="όλες"></label>'+
     '</div>'+
     '<div class="grid2" id="rvKgRow" hidden>'+
@@ -1275,7 +1283,7 @@ function resvForm(){
   function wantedKg(){
     var p=prod(document.getElementById("rvProduct").value), pp=perPallet(p);
     if(!pp) return parseFloat(document.getElementById("rvQty").value)||0;
-    return (parseFloat(document.getElementById("rvPal").value)||0)*pp;
+    return palPcs(parseFloat(document.getElementById("rvPal").value)||0,pp);
   }
   function sync(){
     var pid=document.getElementById("rvProduct").value, p=prod(pid);
@@ -1289,12 +1297,12 @@ function resvForm(){
     var m=metrics(p), q=wantedKg(), after=m.free-q;
     var out;
     if(pk){
-      var freePal=Math.floor(m.free/pk+1e-9);
-      out="1 παλέτα = <b>"+pk+" τεμάχια</b> · ελεύθερες <b>"+freePal+(freePal===1?" παλέτα":" παλέτες")+"</b>";
+      var freePal=halfDown(m.free/pk);
+      out="1 παλέτα = <b>"+pk+" τεμάχια</b> · ελεύθερες <b>"+palWord(freePal)+"</b>";
       if(q>0){
-        var pal=Math.round(q/pk);
-        out+="<br>Δεσμεύεις <b>"+pal+(pal===1?" παλέτα":" παλέτες")+"</b> → μένουν <b>"+
-             Math.floor(after/pk+1e-9)+"</b> ελεύθερες";
+        var pal=parseFloat(document.getElementById("rvPal").value)||0;
+        out+="<br>Δεσμεύεις <b>"+palWord(pal)+"</b> = "+n(q)+" τεμάχια → μένουν <b>"+
+             n1(halfDown(after/pk))+"</b> ελεύθερες";
       }
     } else {
       out='Δεν έχεις ορίσει τεμάχια ανά παλέτα γι\' αυτό το προϊόν — συμπλήρωσέ το στα Προϊόντα για να δεσμεύεις σε παλέτες.';
