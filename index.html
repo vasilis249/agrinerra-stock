@@ -487,7 +487,7 @@ window.AGRINNERA_CONFIG = {
         <tbody></tbody>
       </table></div>
       <div class="totals" id="resvTotals"></div>
-      <p class="note">Οι δεσμεύσεις γίνονται σε <b>παλέτες ή μισές παλέτες</b> (0,5 = τα μισά τεμάχια της παλέτας). Τα τεμάχια ανά παλέτα ορίζονται ανά προϊόν στην καρτέλα Προϊόντα· μόνο για προϊόντα χωρίς ορισμένη παλέτα ζητούνται τεμάχια. Η δέσμευση δεν μειώνει το φυσικό απόθεμα — το εμπόρευμα είναι ακόμα στην αποθήκη. Μειώνει το διαθέσιμο, ώστε να μην το υποσχεθείς σε δεύτερο πελάτη. Όταν φύγει πραγματικά, πάτα «Αποστολή» και γράφεται η πώληση με κλείσιμο της δέσμευσης.</p>
+      <p class="note">Οι δεσμεύσεις γίνονται σε <b>τεμάχια</b>· η φόρμα δείχνει πόσες παλέτες αντιστοιχούν. Η δέσμευση δεν μειώνει το φυσικό απόθεμα — το εμπόρευμα είναι ακόμα στην αποθήκη. Μειώνει το διαθέσιμο, ώστε να μην το υποσχεθείς σε δεύτερο πελάτη. Όταν φύγει πραγματικά, πάτα «Αποστολή» και γράφεται η πώληση με κλείσιμο της δέσμευσης.</p>
     </div>
   </section>
 
@@ -1339,13 +1339,9 @@ function resvForm(){
         customers.map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("")+'</select></label>'+
       '<label>Προϊόν<select id="rvProduct" required>'+productOptions()+'</select></label>'+
     '</div>'+
-    '<div class="grid2" id="rvPalRow">'+
-      '<label>Παλέτες<input type="number" id="rvPal" min="0.5" step="0.5" value="1"></label>'+
+    '<div class="grid2">'+
+      '<label>Τεμάχια<input type="number" id="rvQty" min="1" step="1" required></label>'+
       '<label>Παρτίδα (προαιρετικά)<input type="text" id="rvBatch" list="rvBatchList" placeholder="όλες"></label>'+
-    '</div>'+
-    '<div class="grid2" id="rvKgRow" hidden>'+
-      '<label>Τεμάχια<input type="number" id="rvQty" min="0" step="1"></label>'+
-      '<label>Παρτίδα<input type="text" id="rvBatch2" list="rvBatchList" placeholder="όλες"></label>'+
     '</div>'+
     '<datalist id="rvBatchList"></datalist>'+
     '<label>Σημείωση<input type="text" id="rvNote" placeholder="π.χ. συμφωνία τιμής, αναμονή πληρωμής"></label>'+
@@ -1353,54 +1349,36 @@ function resvForm(){
     '<div class="acts"><button type="button" class="btn" id="rvCancel">Ακύρωση</button>'+
     '<button type="submit" class="btn btn-primary">Δέσμευση</button></div>'+
   '</form>');
-  function wantedKg(){
-    var p=prod(document.getElementById("rvProduct").value), pp=perPallet(p);
-    if(!pp) return parseFloat(document.getElementById("rvQty").value)||0;
-    return palPcs(parseFloat(document.getElementById("rvPal").value)||0,pp);
-  }
+  function wantedKg(){ return parseFloat(document.getElementById("rvQty").value)||0; }
   function sync(){
     var pid=document.getElementById("rvProduct").value, p=prod(pid);
     if(!p){ return; }
     var pk=perPallet(p);
-    document.getElementById("rvPalRow").hidden=!pk;
-    document.getElementById("rvKgRow").hidden=!!pk;
     document.getElementById("rvBatchList").innerHTML=batches().filter(function(b){
       return b.product===pid && b.balance>0.5; }).map(function(b){
       return '<option value="'+esc(b.batch)+'">υπόλοιπο '+n(b.balance)+'</option>'; }).join("");
-    var m=metrics(p), q=wantedKg(), after=m.free-q;
-    var out;
-    if(pk){
-      var freePal=halfDown(m.free/pk);
-      out="1 παλέτα = <b>"+pk+" τεμάχια</b> · ελεύθερες <b>"+palWord(freePal)+"</b>";
-      if(q>0){
-        var pal=parseFloat(document.getElementById("rvPal").value)||0;
-        out+="<br>Δεσμεύεις <b>"+palWord(pal)+"</b> = "+n(q)+" τεμάχια → μένουν <b>"+
-             n1(halfDown(after/pk))+"</b> ελεύθερες";
-      }
-    } else {
-      out='Δεν έχεις ορίσει τεμάχια ανά παλέτα γι\' αυτό το προϊόν — συμπλήρωσέ το στα Προϊόντα για να δεσμεύεις σε παλέτες.';
-      out+="<br>Διαθέσιμα <b>"+pcs(m.free)+"</b>";
-      if(q>0) out+=" → μετά <b>"+pcs(after)+"</b>";
-    }
+    var m=metricsFor(p,document.getElementById("rvOwner").value), q=wantedKg(), after=m.free-q;
+    var out=(pk?"1 παλέτα = <b>"+pk+" τεμάχια</b> · ":"")+"Διαθέσιμα <b>"+qty(p,m.free)+"</b>"+(pk?" ("+pcs(m.free)+")":"");
+    if(q>0) out+="<br>Δεσμεύεις <b>"+pcs(q)+"</b>"+(pk?" = "+qty(p,q):"")+" → μένουν <b>"+qty(p,after)+"</b> διαθέσιμα";
     if(q>0&&after<0) out+=' · <span style="color:var(--crit)">δεσμεύεις περισσότερα από όσα έχεις ελεύθερα</span>';
     document.getElementById("rvCalc").innerHTML=out;
   }
-  ["rvProduct","rvPal","rvQty","rvOwner"].forEach(function(id){
+  ["rvProduct","rvQty","rvOwner"].forEach(function(id){
     var el=document.getElementById(id); if(el) el.addEventListener("input",sync); });
   sync();
   document.getElementById("rvCancel").onclick=closeModal;
   document.getElementById("rvf").addEventListener("submit",function(e){
     e.preventDefault();
-    var pid=document.getElementById("rvProduct").value, p=prod(pid), pk=perPallet(p);
+    var pid=document.getElementById("rvProduct").value, p=prod(pid), pk=perPallet(p), q=Math.round(wantedKg());
     var rec={ id:uid("r"), date:document.getElementById("rvDate").value,
       owner:document.getElementById("rvOwner").value,
       until:document.getElementById("rvUntil").value||"",
       customer:document.getElementById("rvCustomer").value,
       product:pid,
-      qty_kg:Math.round(wantedKg()*100)/100,
-      pallets: pk?(parseFloat(document.getElementById("rvPal").value)||0):0,
+      qty_kg:q,
+      pallets: pk?Math.round(q/pk*100)/100:0,   /* πληροφοριακά· η ποσότητα είναι τα τεμάχια */
       bags: 0,
-      batch:(pk?document.getElementById("rvBatch").value:document.getElementById("rvBatch2").value).trim(),
+      batch:document.getElementById("rvBatch").value.trim(),
       note:document.getElementById("rvNote").value.trim(), status:"ΕΝΕΡΓΗ" };
     if(rec.qty_kg<=0){ toast("Βάλε ποσότητα μεγαλύτερη από μηδέν"); return; }
     save("reservations",rec,function(){ toast("Η ποσότητα δεσμεύτηκε"); closeModal(); });
