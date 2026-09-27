@@ -1,47 +1,7 @@
--- 003_pricing.sql · Τιμολόγηση
--- Προσθέτει δύο πίνακες για την καρτέλα «Τιμολόγηση». Δεν αλλάζει κανέναν υπάρχοντα πίνακα.
---   app_settings   : οι παράμετροι κόστους (μεταφορά, φόρτωση, αποθήκευση, σενάρια margin)
---   product_prices : βάρος τεμαχίου (κιλά) και τρέχουσα τιμή πώλησης ανά προϊόν
--- Στο τέλος συμπληρώνει από τον τιμοκατάλογο Schaumann 01/09/2026 το βάρος και την τιμή αγοράς
--- (€ ανά τεμάχιο, FCA), ΜΟΝΟ όπου λείπουν. Ό,τι έχεις ήδη γράψει δεν αλλάζει.
--- Μπορεί να τρέξει ξανά χωρίς πρόβλημα.
--- Supabase (project gyelvbcytckwpjecrcnr): SQL Editor -> New query -> επικόλληση ΟΛΟΥ του αρχείου -> Run.
+-- 004_pricing_prefill.sql · Τιμολόγηση, βήμα 2 (προαιρετικό, μετά το 003)
+-- Συμπληρώνει από τον τιμοκατάλογο Schaumann 01/09/2026 βάρος τεμαχίου και τιμή αγοράς (€/τεμάχιο),
+-- ΜΟΝΟ όπου λείπουν. Αποτέλεσμα: λίστα με τα προϊόντα που πήραν τιμή αγοράς.
 
-create table if not exists app_settings (
-  key        text primary key,
-  value      jsonb not null,
-  updated_at timestamptz default now()
-);
-alter table app_settings enable row level security;
-drop policy if exists "auth all" on app_settings;
-create policy "auth all" on app_settings for all to authenticated using (true) with check (true);
-grant select, insert, update, delete on app_settings to authenticated;
-
-create table if not exists product_prices (
-  product        text primary key references products(id) on delete cascade,
-  weight_kg      numeric,
-  sale_price_eur numeric,
-  updated_at     timestamptz default now()
-);
-alter table product_prices enable row level security;
-drop policy if exists "auth all" on product_prices;
-create policy "auth all" on product_prices for all to authenticated using (true) with check (true);
-grant select, insert, update, delete on product_prices to authenticated;
-
-insert into app_settings (key, value) values ('pricing', '{
-  "palletsPerTruck": 24,
-  "margins": [20, 25, 30],
-  "costs": [
-    {"name": "Μεταφορά",   "amount": 0,     "unit": "truck",  "on": true},
-    {"name": "Φόρτωση",    "amount": 4,     "unit": "pallet", "on": true},
-    {"name": "Εκφόρτωση",  "amount": 4,     "unit": "pallet", "on": true},
-    {"name": "Αποθήκευση", "amount": 0.012, "unit": "kg",     "on": true}
-  ]
-}'::jsonb)
-on conflict (key) do nothing;
-
--- Βάρος και τιμή αγοράς από τον τιμοκατάλογο, μόνο όπου λείπουν.
--- Το αποτέλεσμα δείχνει σε ποια προϊόντα μπήκε τιμή αγοράς.
 with pricelist(article, name, weight_kg, price_eur) as (
   values
     ('231267-0030', 'RINDAVITAL VK CLASSIC', 30, 31.8),
