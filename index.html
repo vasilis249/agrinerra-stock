@@ -307,6 +307,40 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .calc{font-family:"IBM Plex Mono";font-size:12.5px;color:var(--muted);background:var(--raised);border-radius:7px;padding:8px 10px}
 .calc b{color:var(--ink);font-weight:600}
 
+/* τιμολόγηση */
+.pr-costs{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.pr-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 110px minmax(150px,1fr) auto 40px;gap:8px;align-items:center}
+.pr-row.pr-headrow span{font-family:Archivo;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.pr-row input[type=number]{text-align:right}
+.pr-on{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.pr-on input{width:18px;height:18px;accent-color:var(--accent)}
+.pr-opts{display:flex;gap:14px 22px;flex-wrap:wrap;align-items:flex-end;padding:0 16px 14px}
+.pr-opts label{flex:0 0 auto}
+.pr-opts input{width:96px;text-align:right}
+.pr-m{display:flex;gap:6px;align-items:center}
+.pr-m input{width:70px}
+.pr-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line);background:var(--raised)}
+.pr-acts .sub{color:var(--muted);font-size:12.5px;margin-right:auto}
+.pr-dirty{color:var(--warn);font-weight:600}
+.pr-in{width:92px;text-align:right;padding:5px 7px}
+.pr-name{appearance:none;border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;text-decoration:underline dotted;text-underline-offset:3px}
+.pr-miss{color:var(--warn);font-size:11px;display:block}
+.pr-low{color:var(--warn);font-weight:600}
+#priceTable td{white-space:nowrap}
+#priceTable td:first-child{white-space:normal}
+#priceTable .pcode{display:block}
+@media(max-width:640px){
+  .pr-row{grid-template-columns:1fr 1.3fr auto;grid-template-areas:"n n d" "a u o";
+    padding:10px;border:1px solid var(--line);border-radius:8px}
+  .pr-row>:nth-child(1){grid-area:n}
+  .pr-row>:nth-child(2){grid-area:a}
+  .pr-row>:nth-child(3){grid-area:u}
+  .pr-row>:nth-child(4){grid-area:o}
+  .pr-row>:nth-child(5){grid-area:d}
+  .pr-row.pr-headrow{display:none}
+  .pr-opts input{width:80px}
+}
+
 /* παραγγελίες με πολλά προϊόντα */
 tr.og td{border-top:2px solid var(--line-strong)}
 tr.ol td{padding-top:7px;padding-bottom:7px}
@@ -449,6 +483,7 @@ window.AGRINNERA_CONFIG = {
       <button class="tab" role="tab" data-tab="batches" aria-selected="false">Παρτίδες<span class="cnt" id="cnt-batches"></span></button>
       <button class="tab" role="tab" data-tab="products" aria-selected="false">Προϊόντα</button>
       <button class="tab" role="tab" data-tab="customers" aria-selected="false">Πελάτες</button>
+      <button class="tab" role="tab" data-tab="pricing" aria-selected="false">Τιμολόγηση</button>
     </nav>
     <select id="coFilter" class="cosel" aria-label="Εταιρεία">
       <option value="">Όλες οι εταιρείες</option>
@@ -616,6 +651,45 @@ window.AGRINNERA_CONFIG = {
       <p class="note">Πελάτης με πωλήσεις ή δεσμεύσεις δεν διαγράφεται, για να μείνει το ιστορικό και η ιχνηλασιμότητα των παρτίδων. Η αλλαγή ονόματος φαίνεται αμέσως παντού.</p>
     </div>
   </section>
+
+  <section id="tab-pricing" class="stack" hidden>
+    <div id="pricingMissing" class="panel" hidden>
+      <div class="empty"><b>Χρειάζεται μια προσθήκη στη βάση</b>Τρέξε το αρχείο <code>supabase/003_pricing.sql</code> στο Supabase (SQL Editor → New query → Run) και πάτα «Ανανέωση».</div>
+    </div>
+    <div id="pricingParams" class="panel">
+      <div class="panel-head">
+        <h2>Παράμετροι κόστους</h2>
+        <span class="sub">Άλλαξέ τες όποτε αλλάζει ένα κόστος· οι τιμές από κάτω ξαναϋπολογίζονται αμέσως</span>
+      </div>
+      <div class="pr-costs" id="prCosts"></div>
+      <div class="pr-opts">
+        <div><button type="button" class="btn btn-sm" id="prAddCost">+ Κόστος</button></div>
+        <label>Παλέτες ανά φορτηγό<input type="number" id="prTruck" min="1" step="1"></label>
+        <label>Σενάρια margin (%)<span class="pr-m">
+          <input type="number" id="prM0" min="0" max="95" step="0.5" aria-label="Σενάριο 1">
+          <input type="number" id="prM1" min="0" max="95" step="0.5" aria-label="Σενάριο 2">
+          <input type="number" id="prM2" min="0" max="95" step="0.5" aria-label="Σενάριο 3"></span></label>
+      </div>
+      <div class="pr-acts">
+        <span class="sub" id="prState"></span>
+        <button type="button" class="btn btn-sm" id="prReset">Ακύρωση αλλαγών</button>
+        <button type="button" class="btn btn-sm btn-primary" id="prSave">Αποθήκευση παραμέτρων</button>
+      </div>
+    </div>
+    <div id="pricingTable" class="panel">
+      <div class="panel-head">
+        <h2>Τιμές ανά προϊόν</h2>
+        <span class="sub">€ ανά τεμάχιο · πάτα το όνομα για την ανάλυση</span>
+        <label class="pr-on" style="text-transform:none;letter-spacing:0;font-family:inherit"><input type="checkbox" id="prOnlyPriced" checked>Μόνο με τιμή αγοράς</label>
+        <button type="button" class="btn btn-sm" id="prXlsx">Εξαγωγή Excel</button>
+      </div>
+      <div class="tw"><table id="priceTable">
+        <thead><tr id="prHead"></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note">Κόστος = τιμή αγοράς + όσα κόστη είναι τσεκαρισμένα, όλα ανά τεμάχιο. Ανά φορτηγό: ποσό ÷ παλέτες ανά φορτηγό ÷ τεμάχια ανά παλέτα· ανά παλέτα: ποσό ÷ τεμάχια ανά παλέτα· ανά κιλό: ποσό × κιλά τεμαχίου. Τιμή σεναρίου = κόστος ÷ (1 − margin). Margin τιμής πώλησης = (τιμή πώλησης − κόστος) ÷ τιμή πώλησης. Βάρος, τιμή αγοράς και τιμή πώλησης αλλάζουν κατευθείαν στον πίνακα.</p>
+    </div>
+  </section>
 </main>
 
 </div>
@@ -639,6 +713,7 @@ window.AGRINNERA_CONFIG = {
 
 var DB=null, READY=false, CANWRITE=true;
 var products=[], movements=[], orders=[], customers=[], reservations=[];
+var prices=[], settingsRows=[], PRICING_OK=false;   /* τιμολόγηση (003_pricing.sql) */
 var CO="";
 var COMPANIES=["AGRINERRA","INNERA"];
 var MOVE_TYPES=[
@@ -761,7 +836,7 @@ function batches(){
 function byName(a,b){ return String(a.name||"").localeCompare(String(b.name||""),"el",{sensitivity:"base",numeric:true}); }
 function renderAll(){
   products.sort(byName); customers.sort(byName);   /* αλφαβητικά παντού: πίνακες, λίστες επιλογής, αναζήτηση */
-  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderCustomers(); renderSuggest();
+  renderAlerts(); renderStock(); renderMoves(); renderOrders(); renderReservations(); renderBatches(); renderProducts(); renderCustomers(); renderSuggest(); renderPricing();
   var open=orders.filter(function(o){return o.status!=="ΠΑΡΕΛΗΦΘΗ";}).length;
   document.getElementById("cnt-moves").textContent=movements.length?movements.length:"";
   document.getElementById("cnt-orders").textContent=open?open:"";
@@ -1930,6 +2005,208 @@ document.addEventListener("click",function(e){
   else deleteCustomer(el.getAttribute("data-del-cust"));
 });
 
+/* ----- τιμολόγηση ----- */
+/* Κόστος ανά τεμάχιο = τιμή αγοράς + τα τσεκαρισμένα κόστη, το καθένα μετατρεπόμενο σε € ανά
+   τεμάχιο ανάλογα με τη μονάδα του. Τιμή σεναρίου = κόστος ÷ (1 − margin).
+   Margin τιμής πώλησης = (τιμή − κόστος) ÷ τιμή. Οι παράμετροι αλλάζουν πρώτα «πρόχειρα»
+   (PR_DRAFT) και οι τιμές ξαναϋπολογίζονται αμέσως· γράφονται στη βάση με «Αποθήκευση». */
+var PRICING_DEFAULT={palletsPerTruck:24,margins:[20,25,30],costs:[
+  {name:"Μεταφορά",amount:0,unit:"truck",on:true},
+  {name:"Φόρτωση",amount:4,unit:"pallet",on:true},
+  {name:"Εκφόρτωση",amount:4,unit:"pallet",on:true},
+  {name:"Αποθήκευση",amount:0.012,unit:"kg",on:true}]};
+var PR_UNITS=[["truck","€ ανά φορτηγό"],["pallet","€ ανά παλέτα"],["kg","€ ανά κιλό"],["piece","€ ανά τεμάχιο"],["pct","% επί τιμής αγοράς"]];
+var PR_DRAFT=null;
+var NF2=new Intl.NumberFormat("el-GR",{minimumFractionDigits:2,maximumFractionDigits:2});
+var NF4=new Intl.NumberFormat("el-GR",{minimumFractionDigits:2,maximumFractionDigits:4});
+function eur2(v){ return v==null||!isFinite(v)?"—":NF2.format(v)+" €"; }
+function pricingSaved(){ var r=settingsRows[idxOf(settingsRows,"pricing")]; return r?r.value:PRICING_DEFAULT; }
+function pricingCfg(){ return PR_DRAFT||pricingSaved(); }
+function priceRec(pid){ return prices[idxOf(prices,pid)]||null; }
+function unitLabel(u){ for(var i=0;i<PR_UNITS.length;i++) if(PR_UNITS[i][0]===u) return PR_UNITS[i][1]; return u; }
+/* ένα κόστος σε € ανά τεμάχιο· need = τι λείπει για να υπολογιστεί */
+function costPiece(c,x,cfg){
+  var a=Number(c.amount)||0;
+  if(c.unit==="truck") return x.pp?{v:a/(Number(cfg.palletsPerTruck)||24)/x.pp}:{v:null,need:"τεμ./παλέτα"};
+  if(c.unit==="pallet") return x.pp?{v:a/x.pp}:{v:null,need:"τεμ./παλέτα"};
+  if(c.unit==="kg") return x.w?{v:a*x.w}:{v:null,need:"κιλά"};
+  if(c.unit==="pct") return {v:a/100*x.buy};
+  return {v:a};
+}
+function pricing(p,cfg){
+  cfg=cfg||pricingCfg();
+  var pr=priceRec(p.id), x={pp:perPallet(p),w:pr&&pr.weight_kg?pr.weight_kg:0,buy:Number(p.price_eur_kg)||0};
+  var comps=(cfg.costs||[]).map(function(c){ var r=costPiece(c,x,cfg); return {c:c,v:r.v,need:r.need}; });
+  var need={}; if(!x.buy) need["τιμή αγοράς"]=1;
+  var extra=0;
+  comps.forEach(function(k){ if(!k.c.on) return; if(k.v==null) need[k.need]=1; else extra+=k.v; });
+  var cost=x.buy+extra, ok=!Object.keys(need).length;
+  var sale=pr&&pr.sale_price?pr.sale_price:null;
+  return {x:x,comps:comps,extra:extra,cost:cost,ok:ok,need:Object.keys(need),sale:sale,
+    scen:(cfg.margins||[]).map(function(m){ return ok&&m<100?cost/(1-m/100):null; }),
+    margin:sale&&ok?(sale-cost)/sale*100:null};
+}
+function renderPricing(){
+  var sec=document.getElementById("tab-pricing"); if(!sec) return;
+  document.getElementById("pricingMissing").hidden=PRICING_OK;
+  document.getElementById("pricingParams").hidden=!PRICING_OK;
+  document.getElementById("pricingTable").hidden=!PRICING_OK;
+  if(!PRICING_OK) return;
+  var ae=document.activeElement;
+  if(!document.getElementById("pricingParams").contains(ae)) renderPricingParams();
+  renderPriceTableKeep();
+}
+/* ο πίνακας ξαναζωγραφίζεται, αλλά το πεδίο του που έχει εστίαση την κρατά, μαζί με ό,τι γράφτηκε */
+function renderPriceTableKeep(){
+  var ae=document.activeElement, keep=null;
+  if(document.getElementById("priceTable").contains(ae) && ae.getAttribute("data-pe")){
+    keep={pid:ae.closest("tr").getAttribute("data-pid"),pe:ae.getAttribute("data-pe"),v:ae.value};
+  }
+  renderPriceTable();
+  if(keep){
+    var el=document.querySelector('#priceTable tr[data-pid="'+keep.pid.replace(/"/g,'')+'"] [data-pe="'+keep.pe+'"]');
+    if(el){ el.value=keep.v; el.focus(); }
+  }
+}
+function renderPricingParams(){
+  var cfg=pricingCfg();
+  document.getElementById("prCosts").innerHTML=
+    '<div class="pr-row pr-headrow"><span>Κόστος</span><span>Ποσό</span><span>Μονάδα</span><span>Στο κόστος</span><span></span></div>'+
+    (cfg.costs||[]).map(function(c,i){
+      return '<div class="pr-row" data-ci="'+i+'">'+
+        '<input type="text" data-pf="name" value="'+esc(c.name)+'" aria-label="Όνομα κόστους">'+
+        '<input type="number" data-pf="amount" step="any" min="0" value="'+esc(c.amount)+'" aria-label="Ποσό">'+
+        '<select data-pf="unit" aria-label="Μονάδα">'+PR_UNITS.map(function(u){
+          return '<option value="'+u[0]+'"'+(u[0]===c.unit?" selected":"")+'>'+u[1]+'</option>'; }).join("")+'</select>'+
+        '<label class="pr-on" style="text-transform:none;letter-spacing:0;font-family:inherit"><input type="checkbox" data-pf="on"'+(c.on?" checked":"")+'>μετράει</label>'+
+        '<button type="button" class="btn btn-sm btn-ghost" data-pdel="'+i+'" title="Αφαίρεση κόστους" aria-label="Αφαίρεση">✕</button>'+
+      '</div>';
+    }).join("");
+  document.getElementById("prTruck").value=cfg.palletsPerTruck;
+  [0,1,2].forEach(function(i){ document.getElementById("prM"+i).value=(cfg.margins||[])[i]!=null?cfg.margins[i]:""; });
+  syncPricingState();
+}
+function syncPricingState(){
+  var r=settingsRows[idxOf(settingsRows,"pricing")];
+  document.getElementById("prState").innerHTML=PR_DRAFT?'<span class="pr-dirty">Μη αποθηκευμένες αλλαγές</span> · οι τιμές από κάτω τις δείχνουν ήδη'
+    :(r&&r.updated_at?"Αποθηκευμένες · τελευταία αλλαγή "+greekDate(String(r.updated_at).slice(0,10)):"Προεπιλογές · πάτα «Αποθήκευση» για να κρατηθούν");
+  document.getElementById("prSave").disabled=!PR_DRAFT&&!!r;
+  document.getElementById("prReset").disabled=!PR_DRAFT;
+}
+function prMargins(){ return pricingCfg().margins||[]; }
+function renderPriceTable(){
+  var cfg=pricingCfg(), ms=prMargins();
+  document.getElementById("prHead").innerHTML='<th>Προϊόν</th><th>Τεμ./παλέτα</th><th>Κιλά/τεμ.</th><th>Τιμή αγοράς</th>'+
+    '<th>Λοιπά κόστη</th><th>Κόστος</th>'+ms.map(function(m){ return '<th>Τιμή '+n1(m)+'%</th>'; }).join("")+
+    '<th>Τιμή πώλησης</th><th>Margin</th>';
+  var only=document.getElementById("prOnlyPriced").checked;
+  var list=products.filter(function(p){ return !only || Number(p.price_eur_kg)>0; });
+  var tb=document.querySelector("#priceTable tbody"), cols=8+ms.length;
+  if(!list.length){ tb.innerHTML='<tr><td colspan="'+cols+'"><div class="empty"><b>Κανένα προϊόν με τιμή αγοράς</b>Βγάλε το τικ «Μόνο με τιμή αγοράς» ή γράψε τιμή αγοράς.</div></td></tr>'; return; }
+  var low=Math.min.apply(null,ms.length?ms:[0]);
+  tb.innerHTML=list.map(function(p){
+    var r=pricing(p,cfg), pr=priceRec(p.id);
+    var m=r.margin, mc=m==null?"—":'<span class="'+(m<low?"pr-low":"")+'">'+n1(m)+'%</span>';
+    return '<tr data-pid="'+esc(p.id)+'">'+
+      '<td><button type="button" class="pr-name" data-pinfo="'+esc(p.id)+'">'+esc(p.name)+'</button><span class="pcode">'+esc(p.code||p.id)+'</span>'+
+        (r.need.length?'<span class="pr-miss">λείπει: '+esc(r.need.join(", "))+'</span>':'')+'</td>'+
+      '<td class="num">'+(r.x.pp?n(r.x.pp):"—")+'</td>'+
+      '<td><input type="number" class="pr-in" data-pe="w" step="any" min="0" value="'+(pr&&pr.weight_kg!=null?pr.weight_kg:"")+'" aria-label="Κιλά ανά τεμάχιο"></td>'+
+      '<td><input type="number" class="pr-in" data-pe="buy" step="0.01" min="0" value="'+(Number(p.price_eur_kg)||"")+'" aria-label="Τιμή αγοράς € ανά τεμάχιο"></td>'+
+      '<td class="num">'+eur2(r.ok||r.extra?r.extra:null)+'</td>'+
+      '<td class="num"><b>'+eur2(r.ok?r.cost:null)+'</b></td>'+
+      r.scen.map(function(v){ return '<td class="num">'+eur2(v)+'</td>'; }).join("")+
+      '<td><input type="number" class="pr-in" data-pe="sale" step="0.01" min="0" value="'+(pr&&pr.sale_price!=null?pr.sale_price:"")+'" aria-label="Τιμή πώλησης € ανά τεμάχιο"></td>'+
+      '<td class="num">'+mc+'</td>'+
+    '</tr>';
+  }).join("");
+}
+function prDraft(){ if(!PR_DRAFT) PR_DRAFT=clone(pricingSaved()); return PR_DRAFT; }
+function prReadParams(){
+  var d=prDraft();
+  d.costs=Array.prototype.map.call(document.querySelectorAll("#prCosts .pr-row[data-ci]"),function(row){
+    return {name:row.querySelector('[data-pf="name"]').value.trim()||"Κόστος",
+      amount:parseFloat(row.querySelector('[data-pf="amount"]').value)||0,
+      unit:row.querySelector('[data-pf="unit"]').value, on:row.querySelector('[data-pf="on"]').checked};
+  });
+  d.palletsPerTruck=Math.max(1,parseInt(document.getElementById("prTruck").value,10)||24);
+  d.margins=[0,1,2].map(function(i){ return parseFloat(document.getElementById("prM"+i).value); })
+    .filter(function(v){ return isFinite(v)&&v>=0&&v<100; });
+  syncPricingState(); renderPriceTableKeep();
+}
+function prInfo(pid){
+  var p=prod(pid); if(!p) return;
+  var cfg=pricingCfg(), r=pricing(p,cfg);
+  function line(k,v,how){ return '<tr><td>'+esc(k)+'<span class="sec">'+esc(how||"")+'</span></td><td class="num">'+v+'</td></tr>'; }
+  var rows=line("Τιμή αγοράς",eur2(r.x.buy),"από Γερμανία, € ανά τεμάχιο")+
+    r.comps.map(function(k){
+      var c=k.c, a=NF4.format(Number(c.amount)||0);
+      var how=c.unit==="truck"?a+" € ÷ "+(cfg.palletsPerTruck||24)+" παλέτες ÷ "+(r.x.pp||"?")+" τεμ."
+        :c.unit==="pallet"?a+" € ÷ "+(r.x.pp||"?")+" τεμ."
+        :c.unit==="kg"?a+" € × "+(r.x.w?NF4.format(r.x.w):"?")+" κιλά"
+        :c.unit==="pct"?a+"% × "+eur2(r.x.buy):a+" € ανά τεμάχιο";
+      return line(c.name+(c.on?"":" (δεν μετράει)"),k.v==null?"λείπει "+esc(k.need):(c.on?"":"(")+NF4.format(k.v)+" €"+(c.on?"":")"),how);
+    }).join("")+
+    '<tr><td><b>Κόστος ανά τεμάχιο</b></td><td class="num"><b>'+eur2(r.ok?r.cost:null)+'</b></td></tr>'+
+    (cfg.margins||[]).map(function(m,i){ return line("Τιμή για margin "+n1(m)+"%",eur2(r.scen[i]),r.ok?"κόστος ÷ (1 − "+n1(m)+"%)":""); }).join("")+
+    (r.sale?line("Τιμή πώλησης",eur2(r.sale),"")+line("Margin",r.margin==null?"—":n1(r.margin)+"%","")+
+      line("Κέρδος ανά τεμάχιο",r.ok?eur2(r.sale-r.cost):"—","")+(r.x.pp&&r.ok?line("Κέρδος ανά παλέτα",eur2((r.sale-r.cost)*r.x.pp),r.x.pp+" τεμάχια"):""):"");
+  openModal('<h2>'+esc(p.name)+'</h2><p class="hint">Ανάλυση κόστους και τιμής ανά τεμάχιο'+
+    (PR_DRAFT?' · με τις μη αποθηκευμένες παραμέτρους':'')+'</p>'+
+    '<table class="pp-lines" style="font-size:13px"><tbody>'+rows+'</tbody></table>'+
+    '<div class="acts"><button type="button" class="btn btn-primary" id="piClose">Κλείσιμο</button></div>');
+  document.getElementById("piClose").onclick=closeModal;
+}
+function exportPricingXlsx(){
+  var cfg=pricingCfg(), ms=cfg.margins||[];
+  var head=["Κωδικός","Προϊόν","Τεμ./παλέτα","Κιλά/τεμ.","Τιμή αγοράς €"].concat((cfg.costs||[]).map(function(c){
+    return c.name+" €"+(c.on?"":" (δεν μετράει)"); }),["Κόστος €"],ms.map(function(m){ return "Τιμή "+m+"% €"; }),["Τιμή πώλησης €","Margin %"]);
+  var r2=function(v){ return v==null||!isFinite(v)?"":Math.round(v*100)/100; };
+  var rows=[head].concat(products.filter(function(p){ return Number(p.price_eur_kg)>0; }).map(function(p){
+    var r=pricing(p,cfg);
+    return [p.code||p.id,p.name,r.x.pp||"",r.x.w||"",r2(r.x.buy)].concat(r.comps.map(function(k){ return k.v==null?"":Math.round(k.v*10000)/10000; }),
+      [r.ok?r2(r.cost):""],r.scen.map(r2),[r.sale==null?"":r2(r.sale),r.margin==null?"":Math.round(r.margin*10)/10]);
+  }));
+  dlBlob("agrinnera-times-"+today()+".xlsx",xlsxBlob("Τιμολόγηση",rows,[14,34,11,9,12].concat((cfg.costs||[]).map(function(){ return 12; }),[11],ms.map(function(){ return 11; }),[13,10])));
+  toast("Το αρχείο Excel κατέβηκε");
+}
+(function(){
+  var params=document.getElementById("pricingParams");
+  /* «input» φτάνει για όλα τα πεδία (και για λίστες/τικ)· το «change» στο blur θα ξαναζωγράφιζε
+     τον πίνακα τη στιγμή που πατάς σε κάποιο πεδίο του */
+  params.addEventListener("input",function(e){ if(e.target.closest("#prCosts,.pr-opts")) prReadParams(); });
+  params.addEventListener("click",function(e){
+    var d=e.target.closest("[data-pdel]");
+    if(d){ var cfg=prDraft(); cfg.costs.splice(+d.getAttribute("data-pdel"),1); renderPricingParams(); renderPriceTable(); }
+  });
+  document.getElementById("prAddCost").onclick=function(){
+    prDraft().costs.push({name:"Νέο κόστος",amount:0,unit:"pallet",on:true});
+    renderPricingParams(); renderPriceTable();
+    var rows=document.querySelectorAll("#prCosts .pr-row[data-ci]"); var inp=rows[rows.length-1].querySelector("input"); inp.focus(); inp.select();
+  };
+  document.getElementById("prReset").onclick=function(){ PR_DRAFT=null; renderPricingParams(); renderPriceTable(); };
+  document.getElementById("prSave").onclick=function(){
+    var val=clone(pricingCfg());
+    if(!val.margins.length){ toast("Βάλε τουλάχιστον ένα σενάριο margin"); return; }
+    save("app_settings",{id:"pricing",value:val,updated_at:today()},function(){ PR_DRAFT=null; renderPricingParams(); toast("Οι παράμετροι αποθηκεύτηκαν"); });
+  };
+  document.getElementById("prOnlyPriced").onchange=renderPriceTable;
+  document.getElementById("prXlsx").onclick=exportPricingXlsx;
+  var tbl=document.getElementById("priceTable");
+  tbl.addEventListener("change",function(e){
+    var inp=e.target.closest("[data-pe]"); if(!inp) return;
+    var pid=inp.closest("tr").getAttribute("data-pid"), p=prod(pid); if(!p) return;
+    var raw=inp.value.trim(), v=raw===""?null:parseFloat(raw);
+    if(v!=null && (!isFinite(v)||v<0)){ toast("Γράψε θετικό αριθμό"); return; }
+    var kind=inp.getAttribute("data-pe");
+    if(kind==="buy"){ var rec=clone(p); rec.price_eur_kg=v||0; save("products",rec); return; }
+    var cur=priceRec(pid)||{id:pid,weight_kg:null,sale_price:null}, u=clone(cur);
+    if(kind==="w") u.weight_kg=v; else u.sale_price=v;
+    save("product_prices",u);
+  });
+  tbl.addEventListener("click",function(e){ var b=e.target.closest("[data-pinfo]"); if(b) prInfo(b.getAttribute("data-pinfo")); });
+})();
+
 /* ----- product form ----- */
 function prodForm(pid){
   var isNew=!pid, p=isNew?{id:"",code:"",name:"",bags_pallet:0,no_pallet:false,price_eur_kg:0,lead_weeks:4,monthly_kg:0,moq:0}:prod(pid);
@@ -2101,12 +2378,25 @@ var MAP={
     out:function(o){ return {id:o.id,date:s2d(o.date),until:s2d(o.until),customer:o.customer,
       product:o.product,owner:o.owner||null,qty:o.qty_kg||0,pallets:o.pallets||0,batch:o.batch||null,
       note:o.note||null,status:o.status||"ΕΝΕΡΓΗ",shipped:s2d(o.shipped)}; }
+  },
+  product_prices:{
+    inn:function(r){ return {id:r.product,weight_kg:r.weight_kg==null?null:Number(r.weight_kg),
+      sale_price:r.sale_price_eur==null?null:Number(r.sale_price_eur)}; },
+    out:function(o){ return {product:o.id,weight_kg:o.weight_kg==null?null:o.weight_kg,
+      sale_price_eur:o.sale_price==null?null:o.sale_price,updated_at:new Date().toISOString()}; }
+  },
+  app_settings:{
+    inn:function(r){ return {id:r.key,value:r.value,updated_at:d2s(r.updated_at)}; },
+    out:function(o){ return {key:o.id,value:o.value,updated_at:new Date().toISOString()}; }
   }
 };
 function bucket(c){
   return c==="products"?products:c==="customers"?customers:
-         c==="movements"?movements:c==="orders"?orders:reservations;
+         c==="movements"?movements:c==="orders"?orders:
+         c==="product_prices"?prices:c==="app_settings"?settingsRows:reservations;
 }
+/* στήλη-κλειδί κάθε πίνακα (οι δύο της τιμολόγησης δεν λέγονται id) */
+function keyCol(c){ return c==="product_prices"?"product":c==="app_settings"?"key":"id"; }
 function idxOf(arr,id){ for(var i=0;i<arr.length;i++) if(arr[i].id===id) return i; return -1; }
 
 var BUSY=0;
@@ -2122,9 +2412,13 @@ function loadAll(){
     sbFetch("/rest/v1/customers?select=*&order=id"),
     sbFetch("/rest/v1/movements?select=*"),
     sbFetch("/rest/v1/orders?select=*"),
-    sbFetch("/rest/v1/reservations?select=*")
+    sbFetch("/rest/v1/reservations?select=*"),
+    /* τιμολόγηση: αν δεν έχει τρέξει ακόμα το 003_pricing.sql, η υπόλοιπη εφαρμογή δουλεύει κανονικά */
+    sbFetch("/rest/v1/product_prices?select=*").catch(function(){ return null; }),
+    sbFetch("/rest/v1/app_settings?select=*").catch(function(){ return null; })
   ]).then(function(res){
-    var names=["products","customers","movements","orders","reservations"];
+    var names=["products","customers","movements","orders","reservations","product_prices","app_settings"];
+    PRICING_OK=res[5]!==null && res[6]!==null;
     names.forEach(function(nm,i){
       var arr=bucket(nm); arr.length=0;
       (res[i]||[]).forEach(function(r){ arr.push(MAP[nm].inn(r)); });
@@ -2172,7 +2466,7 @@ function removeAll(coll,ids){
   var befores=ids.map(function(id){ var i=idxOf(bucket(coll),id); return i>=0?clone(bucket(coll)[i]):null; });
   busy(true);
   var f=encodeURIComponent("("+ids.map(function(id){ return '"'+String(id).replace(/"/g,'')+'"'; }).join(",")+")");
-  return sbFetch("/rest/v1/"+coll+"?id=in."+f,{method:"DELETE"}).then(function(){
+  return sbFetch("/rest/v1/"+coll+"?"+keyCol(coll)+"=in."+f,{method:"DELETE"}).then(function(){
     var arr=bucket(coll);
     ids.forEach(function(id,k){ var i=idxOf(arr,id); if(i>=0) arr.splice(i,1); if(befores[k]) histRecord(coll,befores[k],null); });
     busy(false); renderAll();
@@ -2216,7 +2510,7 @@ function commitPending(){
   busy(true);
   return job.items.reduce(function(pr,it){   /* με τη σειρά: οι κινήσεις πριν από την παραγγελία τους */
     return pr.then(function(){
-      return sbFetch("/rest/v1/"+it.coll+"?id=eq."+encodeURIComponent(it.rec.id),{method:"DELETE"})
+      return sbFetch("/rest/v1/"+it.coll+"?"+keyCol(it.coll)+"=eq."+encodeURIComponent(it.rec.id),{method:"DELETE"})
         .then(function(){ it.done=true; });
     });
   },Promise.resolve()).then(function(){ busy(false); },function(){
@@ -2241,7 +2535,7 @@ window.addEventListener("pagehide",function(){
   var job=PENDING; if(!job) return; PENDING=null;
   job.items.forEach(function(it){
     var h={apikey:SB.key}; if(SB.token) h.Authorization="Bearer "+SB.token;
-    try{ fetch(SB.url+"/rest/v1/"+it.coll+"?id=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
+    try{ fetch(SB.url+"/rest/v1/"+it.coll+"?"+keyCol(it.coll)+"=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
   });
 });
 
@@ -2251,7 +2545,8 @@ window.addEventListener("pagehide",function(){
    Αναίρεση = ξαναγράφεται το «πριν»· επανάληψη = ξαναγράφεται το «μετά».
    Το ιστορικό κρατιέται όσο είναι ανοιχτή η σελίδα. */
 var HIST_MAX=10, UNDO_STACK=[], REDO_STACK=[], HIST_CUR=null, HIST_BUSY=false;
-var HIST_WORD={movements:"κίνησης",reservations:"δέσμευσης",orders:"παραγγελίας",products:"προϊόντος",customers:"πελάτη"};
+var HIST_WORD={movements:"κίνησης",reservations:"δέσμευσης",orders:"παραγγελίας",products:"προϊόντος",customers:"πελάτη",
+  product_prices:"τιμής προϊόντος",app_settings:"παραμέτρων τιμολόγησης"};
 function clone(o){ return o?JSON.parse(JSON.stringify(o)):null; }
 ["pointerdown","keydown"].forEach(function(ev){
   document.addEventListener(ev,function(){ HIST_CUR=null; },true);   /* νέο πάτημα = νέο βήμα */
@@ -2287,7 +2582,7 @@ function histApply(ops){
       if(op.rec) return sbFetch("/rest/v1/"+op.coll,{method:"POST",body:JSON.stringify(MAP[op.coll].out(op.rec)),
           extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
         .then(function(){ var i=idxOf(arr,op.id), r=clone(op.rec); if(i>=0) arr[i]=r; else arr.push(r); });
-      return sbFetch("/rest/v1/"+op.coll+"?id=eq."+encodeURIComponent(op.id),{method:"DELETE"})
+      return sbFetch("/rest/v1/"+op.coll+"?"+keyCol(op.coll)+"=eq."+encodeURIComponent(op.id),{method:"DELETE"})
         .then(function(){ var i=idxOf(arr,op.id); if(i>=0) arr.splice(i,1); });
     });
   },Promise.resolve());
@@ -2463,7 +2758,7 @@ function backupHtml(){
         n1(p.price_eur_kg)+" €",n(p.lead_weeks),n(p.monthly_kg),p.moq?esc(qty(p,p.moq)):"—"]; }))+
     '<p class="n">Τα πλήρη δεδομένα της βάσης βρίσκονται μέσα σε αυτό το αρχείο (ενότητα «agrinnera-data»), ώστε να μπορούν να επαναφερθούν αν χρειαστεί.</p>';
   var data=JSON.stringify({app:"agrinnera-stock",exported:now.toISOString(),products:products,customers:customers,
-    movements:movements,orders:orders,reservations:reservations}).replace(/</g,"\\u003c");
+    movements:movements,orders:orders,reservations:reservations,product_prices:prices,app_settings:settingsRows}).replace(/</g,"\\u003c");
   return '<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'+
     '<title>AGRINNERA αντίγραφο '+esc(stamp)+'</title><style>'+
     'body{font:13px/1.45 -apple-system,"Segoe UI",Arial,sans-serif;color:#15201B;background:#fff;margin:0 auto;padding:20px;max-width:1400px}'+
