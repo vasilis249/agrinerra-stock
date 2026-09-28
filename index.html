@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="el">
 <head>
@@ -509,6 +510,7 @@ window.AGRINNERA_CONFIG = {
       <div class="panel-head">
         <h2>Τρέχον απόθεμα</h2>
         <span class="sub" id="stockAsOf"></span>
+        <button class="btn btn-sm" id="stockXlsx" title="Το τρέχον απόθεμα σε αρχείο Excel">Εξαγωγή Excel</button>
         <button class="btn btn-sm" id="newOrderTop">+ Παραγγελία Γερμανίας</button>
       </div>
       <div class="legend">
@@ -566,6 +568,7 @@ window.AGRINNERA_CONFIG = {
       <div class="panel-head">
         <h2>Δεσμεύσεις πελατών</h2>
         <span class="sub">Εμπόρευμα που βρίσκεται στην αποθήκη αλλά είναι κρατημένο</span>
+        <button class="btn btn-sm" id="resvXlsx" title="Οι δεσμεύσεις σε αρχείο Excel">Εξαγωγή Excel</button>
         <button class="btn btn-sm btn-primary" id="newResv">+ Νέα δέσμευση</button>
       </div>
       <div class="tw"><table id="resvTable">
@@ -622,6 +625,7 @@ window.AGRINNERA_CONFIG = {
       <div class="panel-head">
         <h2>Προϊόντα</h2>
         <span class="sub">Συσκευασία, χρόνος παράδοσης και μηνιαία ζήτηση από το demand plan</span>
+        <button class="btn btn-sm" id="prodXlsx" title="Τα προϊόντα σε αρχείο Excel">Εξαγωγή Excel</button>
         <button class="btn btn-sm btn-primary" id="newProd">+ Νέο προϊόν</button>
       </div>
       <div class="tw"><table id="prodTable">
@@ -1883,6 +1887,56 @@ function deleteOrderGroup(oid){
   };
 }
 
+/* ----- εξαγωγές σε Excel ----- */
+function excelRound(v,d){
+  if(v==null || !isFinite(v)) return "";
+  var f=Math.pow(10,d==null?2:d); return Math.round(v*f)/f;
+}
+function exportStockXlsx(){
+  if(!products.length){ toast("Δεν υπάρχουν προϊόντα για εξαγωγή"); return; }
+  var rows=[["Κωδικός","Προϊόν","Τεμ./παλέτα","Απόθεμα (τεμ.)","Δεσμευμένο (τεμ.)","Διαθέσιμο (τεμ.)","Καθ' οδόν (τεμ.)","Προβλεπόμενο (τεμ.)","Ημέρες κάλυψης","Σημείο αναπαραγγελίας (τεμ.)","Αξία αποθέματος €","Κατάσταση"]];
+  products.forEach(function(p){
+    var m=metrics(p);
+    rows.push([p.code||p.id,p.name,perPallet(p)||"",excelRound(m.stock,2),excelRound(m.reserved,2),excelRound(m.free,2),
+      excelRound(m.transit,2),excelRound(m.forecast,2),m.cover==null?"":excelRound(m.cover,1),m.daily>0?excelRound(m.rop,2):"",
+      excelRound(m.value,2),m.label]);
+  });
+  var scope=CO?"-"+CO.toLowerCase():"";
+  dlBlob("agrinnera-apothema"+scope+"-"+today()+".xlsx",xlsxBlob("Απόθεμα",rows,[14,34,11,15,17,15,16,19,15,22,18,20]));
+  toast("Το αρχείο Excel κατέβηκε");
+}
+function exportReservationsXlsx(){
+  var list=reservations.filter(inScope).sort(function(a,b){
+    var ao=(a.status&&a.status!=="ΕΝΕΡΓΗ")?1:0, bo=(b.status&&b.status!=="ΕΝΕΡΓΗ")?1:0;
+    if(ao!==bo) return ao-bo;
+    var pa=prod(a.product), pb=prod(b.product);
+    return String(custName(a.customer)).localeCompare(String(custName(b.customer)),"el",{sensitivity:"base"}) ||
+      String(pa?pa.name:a.product).localeCompare(String(pb?pb.name:b.product),"el",{sensitivity:"base"});
+  });
+  if(!list.length){ toast("Δεν υπάρχουν δεσμεύσεις για εξαγωγή"); return; }
+  var rows=[["Πελάτης","Κωδικός προϊόντος","Προϊόν","Εταιρεία","Ποσότητα (τεμ.)","Παλέτες","Παρτίδα","Κρατείται έως","Κατάσταση","Σημείωση"]];
+  list.forEach(function(r){
+    var p=prod(r.product), pp=perPallet(p), open=(!r.status||r.status==="ΕΝΕΡΓΗ"), d=r.until?daysBetween(r.until):null;
+    var status=!open?(r.status==="ΕΚΤΕΛΕΣΤΗΚΕ"?"Απεστάλη":"Ακυρώθηκε"):(d!==null&&d<0?"Έληξε η κράτηση":"Δεσμευμένο");
+    rows.push([custName(r.customer),p?(p.code||p.id):r.product,p?p.name:r.product,r.owner||"",excelRound(r.qty_kg||0,2),
+      pp?excelRound((r.qty_kg||0)/pp,2):"",r.batch||"όλες",r.until?{d:r.until}:"",status,r.note||""]);
+  });
+  var scope=CO?"-"+CO.toLowerCase():"";
+  dlBlob("agrinnera-desmeuseis"+scope+"-"+today()+".xlsx",xlsxBlob("Δεσμεύσεις",rows,[26,16,32,13,17,10,15,15,19,30]));
+  toast("Το αρχείο Excel κατέβηκε");
+}
+function exportProductsXlsx(){
+  if(!products.length){ toast("Δεν υπάρχουν προϊόντα για εξαγωγή"); return; }
+  var rows=[["Κωδικός","Προϊόν","Τεμάχια ανά παλέτα","Τιμή ανά τεμάχιο €","Παράδοση (εβδ.)","Ζήτηση τεμ./μήνα","Ελάχιστη παραγγελία (τεμ.)","Ελάχιστη παραγγελία (παλέτες)"]];
+  products.forEach(function(p){
+    var pp=perPallet(p);
+    rows.push([p.code||p.id,p.name,pp||"",excelRound(p.price_eur_kg||0,2),excelRound(p.lead_weeks||0,2),
+      excelRound(p.monthly_kg||0,2),p.moq?excelRound(p.moq,2):"",p.moq&&pp?excelRound(p.moq/pp,2):""]);
+  });
+  dlBlob("agrinnera-proionta-"+today()+".xlsx",xlsxBlob("Προϊόντα",rows,[15,36,19,19,17,19,25,28]));
+  toast("Το αρχείο Excel κατέβηκε");
+}
+
 /* ----- εξαγωγή παραγγελιών σε Excel ----- */
 function exportOrdersXlsx(lines,name){
   var rows=[["Αρ. παραγγελίας","Ημ/νία παραγγελίας","Εκτιμώμενη άφιξη","Εταιρεία","Κωδικός","Προϊόν",
@@ -2970,6 +3024,9 @@ document.getElementById("coFilter").addEventListener("change",function(){
 });
 document.getElementById("btnExport").onclick=exportAll;
 document.getElementById("btnCsv").onclick=exportCSV;
+document.getElementById("stockXlsx").onclick=exportStockXlsx;
+document.getElementById("resvXlsx").onclick=exportReservationsXlsx;
+document.getElementById("prodXlsx").onclick=exportProductsXlsx;
 document.getElementById("newMove").onclick=function(){ moveForm(); };
 document.getElementById("newMove2").onclick=function(){ moveForm(); };
 document.getElementById("newResv").onclick=function(){ resvForm(); };
