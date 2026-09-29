@@ -1929,15 +1929,15 @@ function excelRound(v,d){
 }
 function exportStockXlsx(){
   if(!products.length){ toast("Δεν υπάρχουν προϊόντα για εξαγωγή"); return; }
-  var rows=[["Κωδικός","Προϊόν","Τεμ./παλέτα","Απόθεμα (τεμ.)","Δεσμευμένο (τεμ.)","Διαθέσιμο (τεμ.)","Καθ' οδόν (τεμ.)","Προβλεπόμενο (τεμ.)","Ημέρες κάλυψης","Σημείο αναπαραγγελίας (τεμ.)","Αξία αποθέματος €","Κατάσταση"]];
+  var rows=[["Κωδικός","Προϊόν","Τεμ./παλέτα","Απόθεμα (τεμ.)","Δεσμευμένο (τεμ.)","Διαθέσιμο (τεμ.)","Προς φόρτωση (τεμ.)","Καθ' οδόν (τεμ.)","Προβλεπόμενο (τεμ.)","Ημέρες κάλυψης","Σημείο αναπαραγγελίας (τεμ.)","Αξία αποθέματος €","Κατάσταση"]];
   products.forEach(function(p){
     var m=metrics(p);
     rows.push([p.code||p.id,p.name,perPallet(p)||"",excelRound(m.stock,2),excelRound(m.reserved,2),excelRound(m.free,2),
-      excelRound(m.transit,2),excelRound(m.forecast,2),m.cover==null?"":excelRound(m.cover,1),m.daily>0?excelRound(m.rop,2):"",
+      excelRound(m.toload,2),excelRound(m.transit,2),excelRound(m.forecast,2),m.cover==null?"":excelRound(m.cover,1),m.daily>0?excelRound(m.rop,2):"",
       excelRound(m.value,2),m.label]);
   });
   var scope=CO?"-"+CO.toLowerCase():"";
-  dlBlob("agrinnera-apothema"+scope+"-"+today()+".xlsx",xlsxBlob("Απόθεμα",rows,[14,34,11,15,17,15,16,19,15,22,18,20]));
+  dlBlob("agrinnera-apothema"+scope+"-"+today()+".xlsx",xlsxBlob("Απόθεμα",rows,[14,34,11,15,17,15,19,16,19,15,22,18,20]));
   toast("Το αρχείο Excel κατέβηκε");
 }
 function exportReservationsXlsx(){
