@@ -256,6 +256,7 @@ tbody tr:hover{background:var(--raised)}
   #stockTable td[data-label="Απόθεμα"],#stockTable td[data-label="Προβλεπόμενο"],#stockTable td[data-label="Ημέρες κάλυψης"]{font-size:12.5px;padding:0 9px}
   #stockTable td[data-label="Σημείο αναπαρ."],#stockTable td[data-label="Αξία"]{display:none}
   #stockTable td[data-label="Τεμ./παλέτα"]{order:8;font-size:12.5px;padding:0 9px}
+  #stockTable td[data-label="Προς φόρτωση"]{order:8;font-size:12.5px;padding:0 9px}
   #stockTable td[data-label=""]{grid-column:1 / -1;order:9;flex-direction:row;justify-content:flex-end}
 }
 @media(pointer:coarse){
@@ -518,19 +519,19 @@ window.AGRINNERA_CONFIG = {
       </div>
       <div class="tw"><table id="stockTable">
         <thead><tr>
-          <th>Προϊόν</th><th>Τεμ./παλέτα</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Καθ' οδόν</th><th>Προβλεπόμενο</th>
+          <th>Προϊόν</th><th>Τεμ./παλέτα</th><th>Απόθεμα</th><th>Δεσμευμένο</th><th>Διαθέσιμο</th><th>Προς φόρτωση</th><th>Καθ' οδόν</th><th>Προβλεπόμενο</th>
           <th>Ημέρες κάλυψης</th><th>Σημείο αναπαρ.</th><th>Αξία</th><th>Κατάσταση</th><th></th>
         </tr></thead>
         <tbody></tbody>
       </table></div>
       <div class="totals" id="stockTotals"></div>
-      <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας. Το <b>προβλεπόμενο</b> είναι ό,τι θα έχεις ελεύθερο όταν φτάσουν οι παραγγελίες: Απόθεμα − Δεσμευμένο + Καθ' οδόν.</p>
+      <p class="note">Οι ημέρες κάλυψης και η κατάσταση υπολογίζονται στο <b>διαθέσιμο</b>, όχι στο φυσικό απόθεμα: ό,τι είναι δεσμευμένο δεν μπορεί να καλύψει άλλον πελάτη. Το σημείο αναπαραγγελίας είναι η ημερήσια ζήτηση × τον χρόνο παράδοσης, συν 30% απόθεμα ασφαλείας. Το <b>προβλεπόμενο</b> είναι ό,τι θα έχεις ελεύθερο όταν φτάσουν οι παραγγελίες: Απόθεμα − Δεσμευμένο + Προς φόρτωση + Καθ' οδόν. <b>Προς φόρτωση</b>: παραγγελίες που δεν έχουν φύγει ακόμα από τη Γερμανία· <b>Καθ' οδόν</b>: φορτώθηκαν και έρχονται.</p>
     </div>
   </section>
 
   <section id="tab-suggest" class="stack" hidden>
     <div id="suggest" class="stack"></div>
-    <p class="note panel">Εδώ εμφανίζονται τα προϊόντα με μηνιαία ζήτηση που το <b>προβλεπόμενο</b> (Απόθεμα − Δεσμευμένο + Καθ' οδόν) είναι κάτω από το σημείο αναπαραγγελίας. Η πρόταση φέρνει το προβλεπόμενο στο σημείο αναπαραγγελίας συν έναν μήνα ζήτησης, στρογγυλεμένη προς τα πάνω σε <b>ολόκληρες παλέτες</b> και τουλάχιστον όσο η ελάχιστη παραγγελία του προϊόντος. Ένα φορτηγό χωράει 24 παλέτες. Άλλαξε τις παλέτες ή βγάλε το τικ από ό,τι δεν θέλεις και πάτα «Δημιουργία».</p>
+    <p class="note panel">Εδώ εμφανίζονται τα προϊόντα με μηνιαία ζήτηση που το <b>προβλεπόμενο</b> (Απόθεμα − Δεσμευμένο + Προς φόρτωση + Καθ' οδόν) είναι κάτω από το σημείο αναπαραγγελίας. Η πρόταση φέρνει το προβλεπόμενο στο σημείο αναπαραγγελίας συν έναν μήνα ζήτησης, στρογγυλεμένη προς τα πάνω σε <b>ολόκληρες παλέτες</b> και τουλάχιστον όσο η ελάχιστη παραγγελία του προϊόντος. Ένα φορτηγό χωράει 24 παλέτες. Άλλαξε τις παλέτες ή βγάλε το τικ από ό,τι δεν θέλεις και πάτα «Δημιουργία».</p>
   </section>
 
   <section id="tab-moves" class="stack" hidden>
@@ -584,7 +585,7 @@ window.AGRINNERA_CONFIG = {
     <div class="panel">
       <div class="panel-head">
         <h2>Παραγγελίες προς Γερμανία</h2>
-        <span class="sub">Ό,τι είναι καθ' οδόν και δεν έχει μπει ακόμα στο απόθεμα</span>
+        <span class="sub">Κάθε νέα παραγγελία είναι «Προς φόρτωση»· πάτα «Καθ' οδόν» όταν φορτωθεί στη Γερμανία</span>
         <button class="btn btn-sm" id="ordersXlsx" title="Όλες οι παραγγελίες σε αρχείο Excel">Εξαγωγή Excel</button>
         <button class="btn btn-sm btn-primary" id="newOrder">+ Παραγγελία</button>
       </div>
@@ -775,12 +776,19 @@ function stockOf(pid){
   for(var i=0;i<movements.length;i++) if(movements[i].product===pid && inScope(movements[i])) s+=(movements[i].qty_kg||0);
   return s;
 }
-function transitOf(pid){
+/* Στάδια παραγγελίας: ΑΝΑΜΕΝΕΤΑΙ = προς φόρτωση (κάθε νέα), ΚΑΘΟΔΟΝ = φορτώθηκε και έρχεται,
+   ΠΑΡΕΛΗΦΘΗ = μπήκε στο απόθεμα. */
+var ORDER_TRANSIT="ΚΑΘΟΔΟΝ";
+function orderStage(o){ return o.status==="ΠΑΡΕΛΗΦΘΗ"?"done":o.status===ORDER_TRANSIT?"transit":"load"; }
+function incomingOf(pid,stage){
   var s=0;
   for(var i=0;i<orders.length;i++){ var o=orders[i];
-    if(o.product===pid && o.status!=="ΠΑΡΕΛΗΦΘΗ" && inScope(o)) s+=(o.qty_kg||0); }
+    if(o.product===pid && orderStage(o)===stage && inScope(o)) s+=(o.qty_kg||0); }
   return s;
 }
+function orderStageLabel(o){ var s=orderStage(o); return s==="done"?"Παρελήφθη":s==="transit"?"Καθ' οδόν":"Προς φόρτωση"; }
+function transitOf(pid){ return incomingOf(pid,"transit"); }
+function toLoadOf(pid){ return incomingOf(pid,"load"); }
 function activeResv(){
   return reservations.filter(function(r){ return r.status!=="ΕΚΤΕΛΕΣΤΗΚΕ" && r.status!=="ΑΚΥΡΩΘΗΚΕ" && inScope(r); });
 }
@@ -794,9 +802,9 @@ function reservedOf(pid,batch){
   return s;
 }
 function metrics(p){
-  var stock=stockOf(p.id), transit=transitOf(p.id), reserved=reservedOf(p.id);
+  var stock=stockOf(p.id), transit=transitOf(p.id), toload=toLoadOf(p.id), reserved=reservedOf(p.id);
   var free=stock-reserved;
-  var forecast=free+transit;   /* Απόθεμα − Δεσμευμένο + Καθ' οδόν */
+  var forecast=free+toload+transit;   /* Απόθεμα − Δεσμευμένο + Προς φόρτωση + Καθ' οδόν */
   var daily=(p.monthly_kg||0)/30.44;
   var leadDays=(p.lead_weeks||4)*7;
   var rop=daily*leadDays*1.3;
@@ -804,9 +812,9 @@ function metrics(p){
   var status="ok", label="Επαρκές";
   if(daily<=0){ status=stock>0?"ok":"idle"; label=stock>0?"Χωρίς πλάνο":"Χωρίς πλάνο"; }
   else if(free<=0){ status="crit"; label=stock>0?"Όλο δεσμευμένο":"Εξαντλήθηκε"; }
-  else if(free+transit<rop){ status="crit"; label="Παράγγειλε τώρα"; }
-  else if(free<rop){ status="warn"; label="Καλύπτεται καθ' οδόν"; }
-  return {stock:stock,transit:transit,reserved:reserved,free:free,forecast:forecast,daily:daily,rop:rop,cover:cover,
+  else if(forecast<rop){ status="crit"; label="Παράγγειλε τώρα"; }
+  else if(free<rop){ status="warn"; label=free+transit>=rop?"Καλύπτεται καθ' οδόν":"Καλύπτεται από παραγγελία"; }
+  return {stock:stock,transit:transit,toload:toload,reserved:reserved,free:free,forecast:forecast,daily:daily,rop:rop,cover:cover,
           status:status,label:label,value:stock*(p.price_eur_kg||0), leadDays:leadDays};
 }
 function batches(){
@@ -859,8 +867,8 @@ function renderAlerts(){
       rows.push({sev:"crit",txt:"<b>"+esc(p.name)+"</b> — "+reason,
         why:"διαθέσιμα "+qty(p,m.free)+", χρειάζονται "+qty(p,m.rop)});
     } else if(m.status==="warn"){
-      rows.push({sev:"warn",txt:"<b>"+esc(p.name)+"</b> — καλύπτεται από παραγγελία καθ' οδόν",
-        why:"αναμένονται "+qty(p,m.transit)});
+      rows.push({sev:"warn",txt:"<b>"+esc(p.name)+"</b> — καλύπτεται από παραγγελία",
+        why:[m.transit?"καθ' οδόν "+qty(p,m.transit):"",m.toload?"προς φόρτωση "+qty(p,m.toload):""].filter(Boolean).join(" · ")});
     }
   });
   batches().forEach(function(b){
@@ -885,17 +893,17 @@ function renderAlerts(){
 
 function renderStock(){
   var tb=document.querySelector("#stockTable tbody");
-  if(!products.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
-  var tv=0,tk=0,tt=0,tr=0,tp=0;
+  if(!products.length){ tb.innerHTML='<tr><td colspan="13"><div class="empty"><b>Δεν υπάρχουν προϊόντα</b>Πρόσθεσέ τα από την καρτέλα Προϊόντα.</div></td></tr>'; return; }
+  var tv=0,tk=0,tt=0,tl=0,tr=0,tp=0;
   tb.innerHTML=products.map(stockRow).join("")
     .replace(/(\d) (παλέτ|τεμ\.|€|ημ\.)/g,"$1&nbsp;$2");   /* ο αριθμός δεν χωρίζεται από τη μονάδα του */
   products.forEach(function(p){
-    var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tr+=m.reserved;
+    var m=metrics(p); tv+=m.value; tk+=m.stock; tt+=m.transit; tl+=m.toload; tr+=m.reserved;
     if(perPallet(p)) tp+=m.stock/perPallet(p);
   });
   document.getElementById("stockTotals").innerHTML=
     tile("Συνολικά τεμάχια",n(tk))+tile("Δεσμευμένα",n(tr))+tile("Διαθέσιμα",n(tk-tr))+
-    tile("Παλέτες",n1(tp))+tile("Καθ' οδόν",n(tt))+tile("Προβλεπόμενα",n(tk-tr+tt))+tile("Αξία αποθέματος",eur(tv));
+    tile("Παλέτες",n1(tp))+tile("Προς φόρτωση",n(tl))+tile("Καθ' οδόν",n(tt))+tile("Προβλεπόμενα",n(tk-tr+tl+tt))+tile("Αξία αποθέματος",eur(tv));
   document.getElementById("stockAsOf").textContent=
     (CO?CO+" · ":"")+"Όπως είναι σήμερα, "+greekDate(today());
   fitStock();
@@ -939,6 +947,7 @@ function stockRow(p){
         (m.reserved>0&&pp?'<span class="sec v-resv">'+pcs(m.reserved)+'</span>':'')+'</td>'+
       '<td><span class="num v-free">'+qty(p,m.free)+'</span>'+
         (pp?'<span class="sec v-free">'+pcs(m.free)+'</span>':'')+'</td>'+
+      '<td class="num">'+(m.toload>0?qty(p,m.toload):'—')+'</td>'+
       '<td class="num">'+(m.transit>0?qty(p,m.transit):'—')+'</td>'+
       '<td><span class="num"'+(m.forecast<0?' style="color:var(--warn)"':'')+'>'+(m.forecast?qty(p,m.forecast):'—')+'</span>'+
         (pp&&m.forecast?'<span class="sec">'+pcs(m.forecast)+'</span>':'')+'</td>'+
@@ -1023,17 +1032,20 @@ function renderMoves(){
 function renderOrders(){
   var tb=document.querySelector("#orderTable tbody");
   var groups=orderGroups(orders.filter(inScope));
-  if(!groups.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παραγγελία</b>Καταχώρησε τι έχεις παραγγείλει στη Γερμανία για να μετράει ως καθ'+"'"+' οδόν.</div></td></tr>';
+  if(!groups.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty"><b>Καμία παραγγελία</b>Καταχώρησε τι έχεις παραγγείλει στη Γερμανία για να μετράει στο προβλεπόμενο.</div></td></tr>';
     document.getElementById("orderTotals").innerHTML=""; return; }
-  var openKg=0,openEur=0,pallets=0;
+  var openKg=0,openEur=0,pallets=0,loadKg=0,transKg=0;
   tb.innerHTML=groups.map(function(g){
     var open=g.lines.filter(function(o){ return o.status!=="ΠΑΡΕΛΗΦΘΗ"; });
+    var nLoad=open.filter(function(o){ return orderStage(o)==="load"; }).length, nTrans=open.length-nLoad;
     var d=daysBetween(g.eta), gPcs=0, gPal=0, gEur=0, allPal=true;
     var rows=g.lines.map(function(o){
       var p=prod(o.product), pp=perPallet(p), done=o.status==="ΠΑΡΕΛΗΦΘΗ", od=daysBetween(o.eta);
       var val=(o.qty_kg||0)*((p&&p.price_eur_kg)||0);
       gPcs+=o.qty_kg||0; gEur+=val; if(pp) gPal+=(o.qty_kg||0)/pp; else allPal=false;
-      if(!done){ openKg+=o.qty_kg||0; openEur+=val; if(pp) pallets+=(o.qty_kg||0)/pp; }
+      if(!done){ openKg+=o.qty_kg||0; openEur+=val; if(pp) pallets+=(o.qty_kg||0)/pp;
+        if(orderStage(o)==="transit") transKg+=o.qty_kg||0; else loadKg+=o.qty_kg||0; }
+      var st=orderStage(o);
       return '<tr class="ol sub">'+
         '<td><span class="ol-name">'+esc(p?p.name:o.product)+'</span><span class="pcode">'+esc(p?(p.code||p.id):"")+'</span>'+
           '<span hidden>'+esc(g.ref||"")+'</span></td>'+
@@ -1041,8 +1053,8 @@ function renderOrders(){
         '<td><span class="num">'+qty(p,o.qty_kg)+'</span><span class="sec">'+pcs(o.qty_kg)+'</span></td>'+
         '<td>'+(o.eta!==g.eta?'<span class="num">'+greekDate(o.eta)+'</span>':'')+'</td>'+
         '<td class="num">'+eur(val)+'</td>'+
-        '<td><span class="pill '+(done?"p-ok":(od!==null&&od<0?"p-crit":"p-warn"))+'">'+
-          (done?"Παρελήφθη"+(o.received?" "+greekDate(o.received):""):"Αναμένεται")+'</span></td>'+
+        '<td><span class="pill '+(done?"p-ok":st==="load"?"p-idle":(od!==null&&od<0?"p-crit":"p-warn"))+'">'+
+          (done?"Παρελήφθη"+(o.received?" "+greekDate(o.received):""):st==="load"?"Προς φόρτωση":"Καθ' οδόν")+'</span></td>'+
         '<td style="white-space:nowrap">'+
           (done?'':'<button class="btn btn-sm" data-receive="'+esc(o.id)+'" title="Παραλαβή μόνο αυτού του προϊόντος">Παραλαβή</button> ')+
           '<button class="btn btn-sm btn-ghost" data-del-order="'+esc(o.id)+'" title="Διαγραφή προϊόντος από την παραγγελία">✕</button>'+
@@ -1059,9 +1071,11 @@ function renderOrders(){
       '<td><span class="num">'+greekDate(g.eta)+'</span>'+
         (!allDone&&d!==null?'<span class="sec">'+(d<0?"καθυστερεί "+Math.abs(d)+" ημ.":"σε "+d+" ημ.")+'</span>':'')+'</td>'+
       '<td class="num">'+eur(gEur)+'</td>'+
-      '<td><span class="pill '+(allDone?"p-ok":partial?"p-warn":(d!==null&&d<0?"p-crit":"p-warn"))+'">'+
-        (allDone?"Παρελήφθη":partial?"Μερικώς παρελήφθη":"Αναμένεται")+'</span></td>'+
+      '<td><span class="pill '+(allDone?"p-ok":partial?"p-warn":!nTrans?"p-idle":(d!==null&&d<0?"p-crit":"p-warn"))+'">'+
+        (allDone?"Παρελήφθη":partial?"Μερικώς παρελήφθη":!nTrans?"Προς φόρτωση":nLoad?"Μερικώς καθ' οδόν":"Καθ' οδόν")+'</span></td>'+
       '<td style="white-space:nowrap">'+
+        (nLoad?'<button class="btn btn-sm btn-primary" data-dispatch="'+esc(id)+'" title="Φορτώθηκε στη Γερμανία και έρχεται: μετράει στο «Καθ\' οδόν»">Καθ\' οδόν</button> '
+          :(nTrans?'<button class="btn btn-sm btn-ghost" data-undispatch="'+esc(id)+'" title="Επιστροφή σε «Προς φόρτωση»">↩</button> ':''))+
         (open.length?'<button class="btn btn-sm" data-receive-group="'+esc(id)+'" title="Παραλαβή όλης της παραγγελίας">Παραλαβή</button> ':'')+
         '<button class="btn btn-sm" data-edit-order="'+esc(id)+'" title="Τροποποίηση παραγγελίας">✎</button> '+
         '<button class="btn btn-sm" data-xlsx-order="'+esc(id)+'" title="Εξαγωγή της παραγγελίας σε Excel">Excel</button> '+
@@ -1070,9 +1084,30 @@ function renderOrders(){
     return head+rows;
   }).join("");
   document.getElementById("orderTotals").innerHTML=
-    tile("Καθ' οδόν",n(openKg)+" τεμ.")+tile("Αξία",eur(openEur))+
+    tile("Προς φόρτωση",n(loadKg)+" τεμ.")+tile("Καθ' οδόν",n(transKg)+" τεμ.")+tile("Αξία",eur(openEur))+
     tile("Παλέτες",n1(pallets)+" / 24 ανά φορτηγό");
 }
+/* «Καθ' οδόν»: όσα προϊόντα της παραγγελίας είναι προς φόρτωση φορτώθηκαν και έρχονται.
+   Με toTransit=false γυρίζουν πίσω σε «Προς φόρτωση». Αναιρείται και με ↶. */
+function setOrderStage(oid,toTransit){
+  var g=orderGroupOf(oid); if(!g) return;
+  var from=toTransit?"load":"transit";
+  var upd=g.lines.filter(function(o){ return orderStage(o)===from; }).map(function(o){
+    var u=clone(o); u.status=toTransit?ORDER_TRANSIT:"ΑΝΑΜΕΝΕΤΑΙ"; return u;
+  });
+  if(!upd.length) return;
+  saveAll("orders",upd).then(function(){
+    toast(toTransit?"Η "+(g.ref||"παραγγελία")+" είναι καθ' οδόν":"Η "+(g.ref||"παραγγελία")+" γύρισε σε «Προς φόρτωση»");
+  },function(e){
+    if(/check constraint/i.test(String(e&&e.message)))
+      toast("Η βάση δεν δέχεται ακόμα την κατάσταση «Καθ' οδόν». Τρέξε το supabase/005_orders_status.sql στο Supabase.");
+  });
+}
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-dispatch],[data-undispatch]"); if(!b) return;
+  if(b.hasAttribute("data-dispatch")) setOrderStage(b.getAttribute("data-dispatch"),true);
+  else setOrderStage(b.getAttribute("data-undispatch"),false);
+});
 /* Μια παραγγελία = όσες γραμμές έχουν τον ίδιο αριθμό παραγγελίας και την ίδια εταιρεία
    (κάθε γραμμή του πίνακα orders είναι ένα προϊόν). Χωρίς αριθμό, κάθε γραμμή είναι μόνη της. */
 function orderKey(o){ return o.ref ? "r|"+(o.owner||"")+"|"+o.ref : "i|"+o.id; }
@@ -1222,7 +1257,7 @@ function suggestions(){
     if(pick) owners=[CO||SUG["co|"+p.id]||COMPANIES[0]];
     owners.forEach(function(co){
       if(CO && co!==CO) return;
-      var m=metricsFor(p,co), fc=m.free+m.transit;
+      var m=metricsFor(p,co), fc=m.forecast;   /* μετράνε και όσα είναι προς φόρτωση, για να μην ξαναπαραγγελθούν */
       if(fc>=m.rop) return;
       var pp=perPallet(p), moq=roundUp(p.moq||0,pp);
       var need=Math.max(roundUp(m.rop+(p.monthly_kg||0)-fc,pp), moq);
@@ -1891,7 +1926,7 @@ function exportOrdersXlsx(lines,name){
     var p=prod(o.product), pp=perPallet(p);
     rows.push([o.ref||"",{d:o.date},{d:o.eta},o.owner||"",p?(p.code||p.id):o.product,p?p.name:o.product,
       pp?Math.round((o.qty_kg||0)/pp*100)/100:"",o.qty_kg||0,pp||"",
-      o.status==="ΠΑΡΕΛΗΦΘΗ"?"Παρελήφθη":"Αναμένεται",{d:o.received}]);
+      orderStageLabel(o),{d:o.received}]);
   });
   dlBlob(name,xlsxBlob("Παραγγελίες",rows,[18,14,14,13,14,36,9,10,11,12,12]));
   toast("Το αρχείο Excel κατέβηκε");
@@ -2723,13 +2758,13 @@ function backupHtml(){
   function Q(p,v){ var pp=perPallet(p); return esc(qty(p,v))+(pp&&v?'<br><span class="s">'+esc(pcs(v))+'</span>':''); }
   function stockRows(owner){
     return products.map(function(p){ return {p:p,m:metricsFor(p,owner)}; })
-      .filter(function(x){ return !owner || x.m.stock||x.m.reserved||x.m.transit; })
+      .filter(function(x){ return !owner || x.m.stock||x.m.reserved||x.m.transit||x.m.toload; })
       .map(function(x){ var p=x.p, m=x.m;
         return [esc(p.name),esc(p.code||p.id),perPallet(p)?n(perPallet(p)):"—",Q(p,m.stock),
           '<span class="r">'+(m.reserved?Q(p,m.reserved):"—")+'</span>','<span class="f">'+Q(p,m.free)+'</span>',
-          m.transit?Q(p,m.transit):"—",Q(p,m.free+m.transit)]; });
+          m.toload?Q(p,m.toload):"—",m.transit?Q(p,m.transit):"—",Q(p,m.forecast)]; });
   }
-  var sh=["Προϊόν","Κωδικός","Τεμ./παλέτα","Απόθεμα","Δεσμευμένο","Διαθέσιμο","Καθ' οδόν","Προβλεπόμενο"];
+  var sh=["Προϊόν","Κωδικός","Τεμ./παλέτα","Απόθεμα","Δεσμευμένο","Διαθέσιμο","Προς φόρτωση","Καθ' οδόν","Προβλεπόμενο"];
   var body='<h1>AGRINNERA · Αντίγραφο ασφαλείας</h1>'+
     '<p class="n">'+esc(stamp)+(SB.email?' · '+esc(SB.email):'')+' · '+products.length+' προϊόντα, '+customers.length+' πελάτες, '+
       movements.length+' κινήσεις, '+orders.length+' γραμμές παραγγελιών, '+reservations.length+' δεσμεύσεις</p>'+
@@ -2742,7 +2777,7 @@ function backupHtml(){
     T("Παραγγελίες προς Γερμανία",["Αρ. παραγγελίας","Εταιρεία","Προϊόν","Ποσότητα","Ημ/νία","Άφιξη","Κατάσταση"],
       (function(){ var out=[]; orderGroups(orders.slice()).forEach(function(g){ g.lines.forEach(function(o){ var p=prod(o.product);
         out.push([esc(o.ref||""),esc(o.owner||""),esc(p?p.name:o.product),Q(p,o.qty_kg),greekDate(o.date),greekDate(o.eta),
-          o.status==="ΠΑΡΕΛΗΦΘΗ"?"Παρελήφθη "+greekDate(o.received):"Αναμένεται"]); }); }); return out; })())+
+          orderStageLabel(o)+(o.status==="ΠΑΡΕΛΗΦΘΗ"?" "+greekDate(o.received):"")]); }); }); return out; })())+
     T("Παρτίδες με υπόλοιπο",["Παρτίδα","Προϊόν","Εταιρεία","Υπόλοιπο","Ανάλωση πριν","Πελάτες"],
       allBatches().filter(function(b){ return b.balance>0.5; }).map(function(b){ var p=prod(b.product);
         return [esc(b.batch),esc(p?p.name:b.product),esc(b.owner||""),Q(p,b.balance),greekDate(b.best_before),
