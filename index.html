@@ -459,16 +459,11 @@ tr.sug-off td{opacity:.5}
 
 <script>
 /* ===================================================================
-   ΡΥΘΜΙΣΗ ΒΑΣΗΣ
-   firebase: apiKey και projectId από Firebase Console -> Project settings -> General -> Your apps.
-             Μόλις συμπληρωθούν, η εφαρμογή δουλεύει με Firebase.
-   url / key: το Supabase. Χρειάζεται μόνο για τη μεταφορά των δεδομένων (κουμπί
-             «Μεταφορά από Supabase»)· όσο το firebase είναι κενό, η εφαρμογή δουλεύει με Supabase.
+   ΡΥΘΜΙΣΗ ΒΑΣΗΣ — Firebase
+   apiKey και projectId από Firebase Console -> Project settings -> General -> Your apps
    =================================================================== */
 window.AGRINNERA_CONFIG = {
-  firebase: { apiKey: "AIzaSyCry8xRg2-EDMR8GDWpJSekMlxbR1XKWFo", projectId: "agrinerra-stock" },
-  url: "https://gyelvbcytckwpjecrcnr.supabase.co",
-  key: "sb_publishable_ppPc2hczmLvetudEKTCjDw_QvJHydT1"
+  firebase: { apiKey: "AIzaSyCry8xRg2-EDMR8GDWpJSekMlxbR1XKWFo", projectId: "agrinerra-stock" }
 };
 </script>
 
@@ -499,7 +494,6 @@ window.AGRINNERA_CONFIG = {
     <span id="busy" class="busy" hidden>συγχρονισμός…</span>
     <button class="btn btn-sm hist-btn" id="btnUndo" aria-label="Αναίρεση" title="Αναίρεση (Ctrl+Z)" disabled>↶</button>
     <button class="btn btn-sm hist-btn" id="btnRedo" aria-label="Επανάληψη" title="Επανάληψη (Ctrl+Y)" disabled>↷</button>
-    <button class="btn btn-sm" id="btnMigrate" hidden title="Αντιγράφει όλα τα δεδομένα από το Supabase στο Firebase">Μεταφορά από Supabase</button>
     <button class="btn btn-sm" id="btnRefresh" title="Ξαναφέρνει τα δεδομένα από τη βάση">Ανανέωση</button>
     <button class="btn btn-sm" id="btnExport" title="Σώζει αντίγραφο ασφαλείας σε αρχείο HTML που ανοίγει χωρίς σύνδεση">Αντίγραφο</button>
     <span id="who" class="who"></span>
@@ -2502,10 +2496,6 @@ function fsCommit(writes){
   return fsFetch(":commit",{writes:writes.concat([{update:{name:FSN+"/_meta/sync",fields:{}},updateMask:{fieldPaths:[]},
     updateTransforms:[{fieldPath:"v",setToServerValue:"REQUEST_TIME"}]}])});
 }
-function fsCommitChunks(writes){
-  var parts=[]; for(var i=0;i<writes.length;i+=400) parts.push(writes.slice(i,i+400));
-  return parts.reduce(function(pr,w){ return pr.then(function(){ return fsCommit(w); }); },Promise.resolve());
-}
 function fsUpsertWrites(coll,rows){
   var w=[];
   rows.forEach(function(r){ var id=r[keyCol(coll)];
@@ -3333,83 +3323,6 @@ document.getElementById("gateForm").addEventListener("submit",function(e){
 document.getElementById("btnLogout").onclick=function(){
   commitPending().then(sbClear).then(function(){ location.reload(); });
 };
-/* ---------- μεταφορά Supabase → Firebase ----------
-   Διαβάζει όλους τους πίνακες από το Supabase (δεν αλλάζει τίποτα εκεί), τους γράφει ως έχουν
-   στο Firestore, σβήνει ό,τι παραπάνω υπάρχει στο Firestore, και μετά συγκρίνει μία-μία τις εγγραφές. */
-function sortedJson(v){
-  if(Array.isArray(v)) return "["+v.map(sortedJson).join(",")+"]";
-  if(v&&typeof v==="object") return "{"+Object.keys(v).sort().map(function(k){ return JSON.stringify(k)+":"+sortedJson(v[k]); }).join(",")+"}";
-  return JSON.stringify(v===undefined?null:v);
-}
-function migrateFromSupabase(){
-  openModal('<h2>Μεταφορά από Supabase</h2>'+
-    '<p class="hint">Αντιγράφει όλα τα δεδομένα (απόθεμα, κινήσεις, δεσμεύσεις, παραγγελίες, πελάτες, προϊόντα, τιμολόγηση) '+
-    'από το Supabase στο Firebase, ακριβώς όπως είναι. Το Supabase δεν αλλάζει. Μπορεί να ξανατρέξει όσες φορές θέλεις: '+
-    'κάθε φορά το Firebase γίνεται ίδιο με το Supabase.</p>'+
-    '<form id="mgF"><label>Email στο Supabase<input type="email" id="mgE" required value="'+esc(SB.email)+'"></label>'+
-    '<label>Κωδικός στο Supabase<input type="password" id="mgP" required autocomplete="current-password"></label>'+
-    '<p class="calc" id="mgMsg" hidden></p>'+
-    '<div class="acts"><button type="button" class="btn" id="mgNo">Κλείσιμο</button>'+
-    '<button type="submit" class="btn btn-primary" id="mgGo">Μεταφορά</button></div></form>');
-  var msg=document.getElementById("mgMsg");
-  function say(t){ msg.hidden=false; msg.textContent=t; }
-  document.getElementById("mgNo").onclick=closeModal;
-  document.getElementById("mgF").addEventListener("submit",function(e){
-    e.preventDefault();
-    var go=document.getElementById("mgGo"); go.disabled=true;
-    var src={}, tok="";
-    function sGet(t,off,acc){
-      return fetch(SB.url+"/rest/v1/"+t+"?select=*&order="+keyCol(t)+"&limit=1000&offset="+off,
-        {headers:{apikey:SB.key,Authorization:"Bearer "+tok}})
-      .then(function(r){ if(!r.ok) return r.text().then(function(x){ throw new Error(t+": "+x); }); return r.json(); })
-      .then(function(rows){ acc=acc.concat(rows); return rows.length===1000?sGet(t,off+1000,acc):acc; });
-    }
-    say("Σύνδεση στο Supabase…");
-    fetch(SB.url+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:SB.key,"Content-Type":"application/json"},
-      body:JSON.stringify({email:document.getElementById("mgE").value.trim(),password:document.getElementById("mgP").value})})
-    .then(function(r){ if(!r.ok) throw new Error("Λάθος email ή κωδικός Supabase"); return r.json(); })
-    .then(function(j){
-      tok=j.access_token; say("Διαβάζω τα δεδομένα από το Supabase…");
-      return FS_COLLS.reduce(function(pr,t){
-        return pr.then(function(){ return sGet(t,0,[]).then(function(rows){ src[t]=rows; }); });
-      },Promise.resolve());
-    })
-    .then(function(){ say("Ελέγχω τι υπάρχει ήδη στο Firebase…"); return fsFull(""); })
-    .then(function(dst){
-      var w=[], n=0;
-      FS_COLLS.forEach(function(t){
-        var keep={}; src[t].forEach(function(r){ keep[String(r[keyCol(t)])]=1; });
-        var extra=Object.keys(dst.rows[t]).filter(function(id){ return !keep[id]; });
-        w=w.concat(fsUpsertWrites(t,src[t]).filter(function(x){ return x.update; }));
-        if(extra.length) w=w.concat(fsDeleteWrites(t,extra));
-        n+=src[t].length;
-      });
-      say("Γράφω "+n+" εγγραφές στο Firebase…");
-      return fsCommitChunks(w);
-    })
-    .then(function(){ say("Έλεγχος: συγκρίνω μία-μία τις εγγραφές…"); return fsFull(""); })
-    .then(function(dst){
-      var rows=[], bad=0;
-      FS_COLLS.forEach(function(t){
-        var diff=0, d=dst.rows[t], cnt=Object.keys(d).length;
-        src[t].forEach(function(r){ var x=d[String(r[keyCol(t)])]; if(!x||sortedJson(x)!==sortedJson(r)) diff++; });
-        if(cnt!==src[t].length) diff+=Math.abs(cnt-src[t].length);
-        bad+=diff;
-        rows.push('<tr><td>'+esc(t)+'</td><td class="num">'+src[t].length+'</td><td class="num">'+cnt+'</td><td>'+(diff?'<span class="pill p-crit">'+diff+' διαφορές</span>':'<span class="pill p-ok">ίδια</span>')+'</td></tr>');
-      });
-      document.getElementById("mgF").innerHTML='<table class="pp-lines"><thead><tr><th>Πίνακας</th><th class="num">Supabase</th><th class="num">Firebase</th><th></th></tr></thead><tbody>'+rows.join("")+'</tbody></table>'+
-        '<p class="calc">'+(bad?'Βρέθηκαν διαφορές — πάτα ξανά «Μεταφορά από Supabase».':'Όλα μεταφέρθηκαν ακριβώς ίδια. Η εφαρμογή δουλεύει πλέον με το Firebase.')+'</p>'+
-        '<div class="acts"><button type="button" class="btn btn-primary" id="mgOk">Εντάξει</button></div>';
-      document.getElementById("mgOk").onclick=closeModal;
-      return loadAll(true);
-    })
-    .catch(function(err){ go.disabled=false; say("Η μεταφορά σταμάτησε: "+(err&&err.message||err)+". Τίποτα δεν χάθηκε· δοκίμασε ξανά."); });
-  });
-}
-(function(){
-  var b=document.getElementById("btnMigrate");
-  if(FB && SB.url && SB.key){ b.hidden=false; b.onclick=migrateFromSupabase; }
-})();
 document.getElementById("btnRefresh").onclick=function(){ loadAll(); };
 document.getElementById("btnExport").onclick=exportAll;
 document.getElementById("btnCsv").onclick=exportCSV;
