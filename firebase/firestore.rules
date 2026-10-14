@@ -1,0 +1,16 @@
+rules_version = '2';
+// Κανόνες ασφαλείας του Firestore για το AGRINNERA stock.
+// Διαβάζουν και γράφουν ΜΟΝΟ οι χρήστες που είναι στη λίστα παρακάτω.
+// Βάλε εδώ τα email με τα οποία μπαίνετε στην εφαρμογή (ένα ή περισσότερα).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function allowed() {
+      return request.auth != null && request.auth.token.email in [
+        "bale-edo-to-email@innera.gr"
+      ];
+    }
+    match /{document=**} {
+      allow read, write: if allowed();
+    }
+  }
+}

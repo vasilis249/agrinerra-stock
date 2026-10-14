@@ -459,10 +459,14 @@ tr.sug-off td{opacity:.5}
 
 <script>
 /* ===================================================================
-   ΣΥΜΠΛΗΡΩΣΕ ΕΔΩ τα δύο στοιχεία από το Supabase:
-   Settings -> Data API -> Project URL και anon public key
+   ΡΥΘΜΙΣΗ ΒΑΣΗΣ
+   firebase: apiKey και projectId από Firebase Console -> Project settings -> General -> Your apps.
+             Μόλις συμπληρωθούν, η εφαρμογή δουλεύει με Firebase.
+   url / key: το Supabase. Χρειάζεται μόνο για τη μεταφορά των δεδομένων (κουμπί
+             «Μεταφορά από Supabase»)· όσο το firebase είναι κενό, η εφαρμογή δουλεύει με Supabase.
    =================================================================== */
 window.AGRINNERA_CONFIG = {
+  firebase: { apiKey: "", projectId: "" },
   url: "https://gyelvbcytckwpjecrcnr.supabase.co",
   key: "sb_publishable_ppPc2hczmLvetudEKTCjDw_QvJHydT1"
 };
@@ -495,6 +499,7 @@ window.AGRINNERA_CONFIG = {
     <span id="busy" class="busy" hidden>συγχρονισμός…</span>
     <button class="btn btn-sm hist-btn" id="btnUndo" aria-label="Αναίρεση" title="Αναίρεση (Ctrl+Z)" disabled>↶</button>
     <button class="btn btn-sm hist-btn" id="btnRedo" aria-label="Επανάληψη" title="Επανάληψη (Ctrl+Y)" disabled>↷</button>
+    <button class="btn btn-sm" id="btnMigrate" hidden title="Αντιγράφει όλα τα δεδομένα από το Supabase στο Firebase">Μεταφορά από Supabase</button>
     <button class="btn btn-sm" id="btnRefresh" title="Ξαναφέρνει τα δεδομένα από τη βάση">Ανανέωση</button>
     <button class="btn btn-sm" id="btnExport" title="Σώζει αντίγραφο ασφαλείας σε αρχείο HTML που ανοίγει χωρίς σύνδεση">Αντίγραφο</button>
     <span id="who" class="who"></span>
@@ -2375,10 +2380,13 @@ document.addEventListener("click",function(e){
   var b=e.target.closest("[data-del-prod]"); if(b) deleteProduct(b.getAttribute("data-del-prod"));
 });
 
-/* ---------- Supabase: σύνδεση, δεδομένα ---------- */
-var SB={ url:(window.AGRINNERA_CONFIG||{}).url||"", key:(window.AGRINNERA_CONFIG||{}).key||"",
-         token:null, refresh:null, email:"" };
-var TOKKEY="agrinnera_sb_session";
+/* ---------- βάση: Supabase ή Firebase (Firestore) ---------- */
+/* Αν στη ρύθμιση υπάρχει firebase.apiKey, η εφαρμογή δουλεύει με Firebase· αλλιώς με Supabase.
+   Οι εγγραφές έχουν ακριβώς την ίδια μορφή και στις δύο βάσεις (όπως οι γραμμές των πινάκων). */
+var CFG=window.AGRINNERA_CONFIG||{};
+var SB={ url:CFG.url||"", key:CFG.key||"", token:null, refresh:null, email:"" };
+var FB=(CFG.firebase&&CFG.firebase.apiKey&&CFG.firebase.projectId)?CFG.firebase:null;
+var TOKKEY=FB?"agrinnera_fb_session":"agrinnera_sb_session";
 var CHR34=String.fromCharCode(34), CRLF=String.fromCharCode(13,10), BOM=String.fromCharCode(65279);
 
 function sbStore(){
@@ -2389,7 +2397,7 @@ function sbLoadSession(){
        if(j&&j.t){ SB.token=j.t; SB.refresh=j.r; SB.email=j.e||""; return true; } }catch(e){}
   return false;
 }
-function sbClear(){ SB.token=null; SB.refresh=null; try{ localStorage.removeItem(TOKKEY); }catch(e){} }
+function sbClear(){ SB.token=null; SB.refresh=null; FS_CACHE=null; try{ localStorage.removeItem(TOKKEY); }catch(e){} return FB?idbDel(FS_KEY):Promise.resolve(); }
 
 function sbAuth(grant,body){
   return fetch(SB.url+"/auth/v1/token?grant_type="+grant,{
@@ -2404,13 +2412,30 @@ function sbAuth(grant,body){
     sbStore(); return j;
   });
 }
-function sbLogin(email,pass){ SB.email=email; return sbAuth("password",{email:email,password:pass}); }
+/* Firebase Authentication μέσω REST (χωρίς βιβλιοθήκη) */
+var FBA=FB?(FB.authUrl||"https://identitytoolkit.googleapis.com"):"", FBT=FB?(FB.tokenUrl||"https://securetoken.googleapis.com"):"";
+function fbJson(r){
+  if(r.ok) return r.json();
+  return r.json().then(function(j){ throw new Error((j&&j.error&&(j.error.message||j.error))||"auth"); },
+                       function(){ throw new Error("HTTP "+r.status); });
+}
+function sbLogin(email,pass){
+  SB.email=email;
+  if(!FB) return sbAuth("password",{email:email,password:pass});
+  return fetch(FBA+"/v1/accounts:signInWithPassword?key="+encodeURIComponent(FB.apiKey),{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pass,returnSecureToken:true})})
+  .then(fbJson).then(function(j){ SB.token=j.idToken; SB.refresh=j.refreshToken; SB.email=j.email||email; sbStore(); return j; });
+}
 /* Μία μόνο ανανέωση τη φορά: το Supabase ακυρώνει το refresh token μόλις
    χρησιμοποιηθεί, οπότε οι παράλληλες κλήσεις περιμένουν την ίδια ανανέωση. */
 var REFRESHING=null;
 function sbRefreshToken(){
   if(!REFRESHING){
-    REFRESHING=sbAuth("refresh_token",{refresh_token:SB.refresh})
+    REFRESHING=(FB?fetch(FBT+"/v1/token?key="+encodeURIComponent(FB.apiKey),{method:"POST",
+        headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(SB.refresh)})
+      .then(fbJson).then(function(j){ SB.token=j.id_token; SB.refresh=j.refresh_token; sbStore(); return j; })
+      :sbAuth("refresh_token",{refresh_token:SB.refresh}))
       .then(function(j){ REFRESHING=null; return j; },
             function(e){ REFRESHING=null; throw e; });
   }
@@ -2431,6 +2456,178 @@ function sbFetch(path,opts,retried){
     return r.text().then(function(t){ return t?JSON.parse(t):null; });
   });
 }
+
+/* ----- Firestore μέσω REST ----- */
+var FSN=FB?"projects/"+FB.projectId+"/databases/(default)/documents":"";
+var FSU=FB?(FB.firestoreUrl||"https://firestore.googleapis.com")+"/v1/"+FSN:"";
+var FS_KEY=FB?"fs:"+FB.projectId:"";
+var FS_COLLS=["products","customers","movements","orders","reservations","product_prices","app_settings"];
+function fsFetch(path,body,retried){
+  var h={}; if(SB.token) h.Authorization="Bearer "+SB.token; if(body) h["Content-Type"]="application/json";
+  return fetch(FSU+path,{method:body?"POST":"GET",headers:h,body:body?JSON.stringify(body):undefined}).then(function(r){
+    if(r.status===401 && !retried && SB.refresh)
+      return sbRefreshToken().then(function(){ return fsFetch(path,body,true); });
+    if(r.status===404 && !body) return null;
+    if(!r.ok) return r.text().then(function(t){ throw new Error(t||("HTTP "+r.status)); });
+    return r.json();
+  });
+}
+function fsVal(v){
+  if(v===null||v===undefined) return {nullValue:null};
+  if(typeof v==="boolean") return {booleanValue:v};
+  if(typeof v==="number") return isFinite(v)?{doubleValue:v}:{nullValue:null};
+  if(Array.isArray(v)) return {arrayValue:{values:v.map(fsVal)}};
+  if(typeof v==="object") return {mapValue:{fields:fsFields(v)}};
+  return {stringValue:String(v)};
+}
+function fsFields(o){ var f={}; for(var k in o) if(o[k]!==undefined) f[k]=fsVal(o[k]); return f; }
+function fsPlain(v){
+  if("stringValue" in v) return v.stringValue;
+  if("doubleValue" in v) return Number(v.doubleValue);
+  if("integerValue" in v) return Number(v.integerValue);
+  if("booleanValue" in v) return v.booleanValue;
+  if("timestampValue" in v) return v.timestampValue;
+  if("mapValue" in v) return fsObj(v.mapValue.fields,true);
+  if("arrayValue" in v) return (v.arrayValue.values||[]).map(fsPlain);
+  return null;
+}
+function fsObj(f,inner){ var o={}; for(var k in (f||{})) if(inner||k!=="_u") o[k]=fsPlain(f[k]); return o; }
+/* κάθε εγγραφή γίνεται έγγραφο με όνομα το κλειδί της· η τελεία και η κάθετος δεν επιτρέπονται */
+function fsId(id){ return encodeURIComponent(String(id)).replace(/\./g,"%2E"); }
+function fsDoc(c,id){ return FSN+"/"+c+"/"+fsId(id); }
+function fsTomb(c,id){ return FSN+"/_deleted/"+c+"__"+fsId(id); }
+var FS_STAMP=[{fieldPath:"_u",setToServerValue:"REQUEST_TIME"}];
+/* Κάθε εγγραφή ενημερώνει και τη «σημαία» _meta/sync: έτσι ο έλεγχος για αλλαγές κοστίζει μία ανάγνωση. */
+function fsCommit(writes){
+  return fsFetch(":commit",{writes:writes.concat([{update:{name:FSN+"/_meta/sync",fields:{}},updateMask:{fieldPaths:[]},
+    updateTransforms:[{fieldPath:"v",setToServerValue:"REQUEST_TIME"}]}])});
+}
+function fsCommitChunks(writes){
+  var parts=[]; for(var i=0;i<writes.length;i+=400) parts.push(writes.slice(i,i+400));
+  return parts.reduce(function(pr,w){ return pr.then(function(){ return fsCommit(w); }); },Promise.resolve());
+}
+function fsUpsertWrites(coll,rows){
+  var w=[];
+  rows.forEach(function(r){ var id=r[keyCol(coll)];
+    w.push({update:{name:fsDoc(coll,id),fields:fsFields(r)},updateTransforms:FS_STAMP});
+    w.push({delete:fsTomb(coll,id)}); });
+  return w;
+}
+function fsDeleteWrites(coll,ids){
+  var w=[];
+  ids.forEach(function(id){
+    w.push({delete:fsDoc(coll,id)});
+    w.push({update:{name:fsTomb(coll,id),fields:fsFields({c:coll,id:String(id)})},updateTransforms:FS_STAMP}); });
+  return w;
+}
+function fsList(coll,tok,acc){
+  acc=acc||[];
+  return fsFetch("/"+coll+"?pageSize=1000"+(tok?"&pageToken="+encodeURIComponent(tok):"")).then(function(j){
+    ((j&&j.documents)||[]).forEach(function(d){ acc.push(fsObj(d.fields)); });
+    return j&&j.nextPageToken?fsList(coll,j.nextPageToken,acc):acc;
+  });
+}
+function fsKeyed(coll,list){ var o={}; list.forEach(function(r){ o[String(r[keyCol(coll)])]=r; }); return o; }
+function fsFull(v){
+  return Promise.all(FS_COLLS.map(function(k){ return fsList(k); })).then(function(res){
+    var rows={}; FS_COLLS.forEach(function(k,i){ rows[k]=fsKeyed(k,res[i]); });
+    return {email:SB.email,v:v,rows:rows};
+  });
+}
+/* μόνο ό,τι άλλαξε από τον προηγούμενο συγχρονισμό (με 2 λεπτά περιθώριο) */
+function fsDelta(c,v){
+  var since=new Date(new Date(c.v).getTime()-120000).toISOString();
+  function q(k){
+    return fsFetch(":runQuery",{structuredQuery:{from:[{collectionId:k}],
+      where:{fieldFilter:{field:{fieldPath:"_u"},op:"GREATER_THAN",value:{timestampValue:since}}}}})
+    .then(function(a){ return (a||[]).filter(function(x){ return x.document; }).map(function(x){ return fsObj(x.document.fields); }); });
+  }
+  return Promise.all(FS_COLLS.concat(["_deleted"]).map(q)).then(function(res){
+    res[FS_COLLS.length].forEach(function(t){ if(c.rows[t.c]) delete c.rows[t.c][t.id]; });
+    FS_COLLS.forEach(function(k,i){
+      c.rows[k]=c.rows[k]||{};
+      res[i].forEach(function(r){ c.rows[k][String(r[keyCol(k)])]=r; });
+    });
+    c.v=v; return c;
+  });
+}
+/* Τα δεδομένα κρατιούνται και στη συσκευή: στο άνοιγμα και κάθε 90" διαβάζεται μόνο η «σημαία»,
+   και αν κάτι άλλαξε, μόνο οι εγγραφές που άλλαξαν. Έτσι μένουμε άνετα στο δωρεάν όριο. */
+var FS_CACHE=null;
+function fsSync(force){
+  return Promise.all([fsFetch("/_meta/sync"), FS_CACHE?Promise.resolve(FS_CACHE):idbGet(FS_KEY)]).then(function(r){
+    var meta=r[0], v=meta&&meta.fields&&meta.fields.v?meta.fields.v.timestampValue:"";
+    var c=r[1]&&r[1].email===SB.email&&r[1].rows?r[1]:null;
+    if(force||!c||!c.v||!v) return fsFull(v);
+    if(c.v===v) return FS_CACHE===c?"same":c;
+    return fsDelta(c,v);
+  }).then(function(c){
+    if(c==="same") return c;
+    FS_CACHE=c; idbPut(FS_KEY,c);
+    var out={}; FS_COLLS.forEach(function(k){ var o=c.rows[k]||{}; out[k]=Object.keys(o).sort().map(function(id){ return o[id]; }); });
+    return out;
+  });
+}
+/* μικρή αποθήκη στη συσκευή (IndexedDB)· αν δεν υπάρχει, απλώς δεν κρατάμε αντίγραφο */
+function idb(mode,fn){
+  return new Promise(function(res){
+    try{
+      var rq=indexedDB.open("agrinnera",1);
+      rq.onupgradeneeded=function(){ rq.result.createObjectStore("kv"); };
+      rq.onerror=function(){ res(null); };
+      rq.onsuccess=function(){
+        try{ var db=rq.result, tx=db.transaction("kv",mode), q=fn(tx.objectStore("kv"));
+             tx.oncomplete=function(){ db.close(); res(q&&q.result); };
+             tx.onerror=tx.onabort=function(){ db.close(); res(null); };
+        }catch(e){ res(null); }
+      };
+    }catch(e){ res(null); }
+  });
+}
+function idbGet(k){ return idb("readonly",function(s){ return s.get(k); }); }
+function idbPut(k,v){ return idb("readwrite",function(s){ return s.put(v,k); }); }
+function idbDel(k){ return idb("readwrite",function(s){ return s.delete(k); }); }
+
+/* ----- κοινές λειτουργίες για τις δύο βάσεις (rows = εγγραφές σε μορφή βάσης) ----- */
+function dbLoad(force){
+  if(FB) return fsSync(force);
+  return Promise.all([
+    sbFetch("/rest/v1/products?select=*&order=id"),
+    sbFetch("/rest/v1/customers?select=*&order=id"),
+    sbFetch("/rest/v1/movements?select=*"),
+    sbFetch("/rest/v1/orders?select=*"),
+    sbFetch("/rest/v1/reservations?select=*"),
+    /* τιμολόγηση: αν δεν έχει τρέξει ακόμα το 003_pricing.sql, η υπόλοιπη εφαρμογή δουλεύει κανονικά */
+    sbFetch("/rest/v1/product_prices?select=*").catch(function(){ return null; }),
+    sbFetch("/rest/v1/app_settings?select=*").catch(function(){ return null; })
+  ]).then(function(res){ var out={}; FS_COLLS.forEach(function(k,i){ out[k]=res[i]; }); return out; });
+}
+function dbUpsert(coll,rows){
+  if(FB) return fsCommit(fsUpsertWrites(coll,rows));
+  return sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(rows),
+    extra:{Prefer:"resolution=merge-duplicates,return=minimal"}});
+}
+function dbRemove(coll,ids){
+  if(FB) return fsCommit(fsDeleteWrites(coll,ids));
+  var f=encodeURIComponent("("+ids.map(function(id){ return '"'+String(id).replace(/"/g,'')+'"'; }).join(",")+")");
+  return sbFetch("/rest/v1/"+coll+"?"+keyCol(coll)+"=in."+f,{method:"DELETE"});
+}
+/* όταν κλείνει η σελίδα: στέλνεται χωρίς αναμονή απάντησης */
+function dbRemoveBeacon(items){
+  var h={}; if(SB.token) h.Authorization="Bearer "+SB.token;
+  if(FB){
+    var w=[]; items.forEach(function(it){ w=w.concat(fsDeleteWrites(it.coll,[it.rec.id])); });
+    w.push({update:{name:FSN+"/_meta/sync",fields:{}},updateMask:{fieldPaths:[]},updateTransforms:[{fieldPath:"v",setToServerValue:"REQUEST_TIME"}]});
+    h["Content-Type"]="application/json";
+    try{ fetch(FSU+":commit",{method:"POST",headers:h,body:JSON.stringify({writes:w}),keepalive:true}); }catch(e){}
+    return;
+  }
+  h.apikey=SB.key;
+  items.forEach(function(it){
+    try{ fetch(SB.url+"/rest/v1/"+it.coll+"?"+keyCol(it.coll)+"=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
+  });
+}
+function denied(e){ return /row-level|PERMISSION_DENIED/.test(String(e&&e.message||"")); }
 
 /* ---------- αντιστοίχιση πεδίων βάσης <-> εφαρμογής ---------- */
 function d2s(v){ return v===null||v===undefined?"":v; }   // date/text από βάση
@@ -2497,23 +2694,14 @@ function busy(on){
   var el=document.getElementById("busy"); if(el) el.hidden=(BUSY===0);
 }
 
-function loadAll(){
+function loadAll(force){
   busy(true);
-  return Promise.all([
-    sbFetch("/rest/v1/products?select=*&order=id"),
-    sbFetch("/rest/v1/customers?select=*&order=id"),
-    sbFetch("/rest/v1/movements?select=*"),
-    sbFetch("/rest/v1/orders?select=*"),
-    sbFetch("/rest/v1/reservations?select=*"),
-    /* τιμολόγηση: αν δεν έχει τρέξει ακόμα το 003_pricing.sql, η υπόλοιπη εφαρμογή δουλεύει κανονικά */
-    sbFetch("/rest/v1/product_prices?select=*").catch(function(){ return null; }),
-    sbFetch("/rest/v1/app_settings?select=*").catch(function(){ return null; })
-  ]).then(function(res){
-    var names=["products","customers","movements","orders","reservations","product_prices","app_settings"];
-    PRICING_OK=res[5]!==null && res[6]!==null;
-    names.forEach(function(nm,i){
+  return dbLoad(force).then(function(res){
+    if(res==="same"){ busy(false); return; }   /* τίποτα καινούργιο */
+    PRICING_OK=res.product_prices!==null && res.app_settings!==null;
+    FS_COLLS.forEach(function(nm){
       var arr=bucket(nm); arr.length=0;
-      (res[i]||[]).forEach(function(r){ arr.push(MAP[nm].inn(r)); });
+      (res[nm]||[]).forEach(function(r){ arr.push(MAP[nm].inn(r)); });
     });
     if(PENDING) PENDING.items.forEach(function(it){   /* ό,τι περιμένει διαγραφή δεν ξαναφαίνεται */
       var arr=bucket(it.coll), i=idxOf(arr,it.rec.id); if(i>=0) arr.splice(i,1);
@@ -2525,8 +2713,7 @@ function loadAll(){
 function save(coll,rec,done){
   var i0=idxOf(bucket(coll),rec.id), before=i0>=0?clone(bucket(coll)[i0]):null;
   busy(true);
-  sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(MAP[coll].out(rec)),
-    extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+  dbUpsert(coll,[MAP[coll].out(rec)])
   .then(function(){
     var arr=bucket(coll), i=idxOf(arr,rec.id);
     if(i>=0) arr[i]=rec; else arr.push(rec);
@@ -2534,7 +2721,7 @@ function save(coll,rec,done){
     renderAll(); busy(false); if(done) done();
   }).catch(function(e){
     busy(false);
-    toast(String(e.message||"").indexOf("row-level")>=0 ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
+    toast(denied(e) ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
   });
 }
 
@@ -2542,23 +2729,21 @@ function save(coll,rec,done){
 function saveAll(coll,recs){
   var befores=recs.map(function(r){ var i=idxOf(bucket(coll),r.id); return i>=0?clone(bucket(coll)[i]):null; });
   busy(true);
-  return sbFetch("/rest/v1/"+coll,{method:"POST",body:JSON.stringify(recs.map(MAP[coll].out)),
-    extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+  return dbUpsert(coll,recs.map(MAP[coll].out))
   .then(function(){
     var arr=bucket(coll);
     recs.forEach(function(r,k){ var i=idxOf(arr,r.id); if(i>=0) arr[i]=r; else arr.push(r); histRecord(coll,befores[k],r); });
     busy(false); renderAll();
   },function(e){
     busy(false);
-    toast(String(e&&e.message||"").indexOf("row-level")>=0 ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
+    toast(denied(e) ? "Δεν έχεις δικαίωμα εγγραφής" : "Η αποθήκευση απέτυχε");
     throw e;
   });
 }
 function removeAll(coll,ids){
   var befores=ids.map(function(id){ var i=idxOf(bucket(coll),id); return i>=0?clone(bucket(coll)[i]):null; });
   busy(true);
-  var f=encodeURIComponent("("+ids.map(function(id){ return '"'+String(id).replace(/"/g,'')+'"'; }).join(",")+")");
-  return sbFetch("/rest/v1/"+coll+"?"+keyCol(coll)+"=in."+f,{method:"DELETE"}).then(function(){
+  return dbRemove(coll,ids).then(function(){
     var arr=bucket(coll);
     ids.forEach(function(id,k){ var i=idxOf(arr,id); if(i>=0) arr.splice(i,1); if(befores[k]) histRecord(coll,befores[k],null); });
     busy(false); renderAll();
@@ -2602,8 +2787,7 @@ function commitPending(){
   busy(true);
   return job.items.reduce(function(pr,it){   /* με τη σειρά: οι κινήσεις πριν από την παραγγελία τους */
     return pr.then(function(){
-      return sbFetch("/rest/v1/"+it.coll+"?"+keyCol(it.coll)+"=eq."+encodeURIComponent(it.rec.id),{method:"DELETE"})
-        .then(function(){ it.done=true; });
+      return dbRemove(it.coll,[it.rec.id]).then(function(){ it.done=true; });
     });
   },Promise.resolve()).then(function(){ busy(false); },function(){
     busy(false);
@@ -2625,10 +2809,7 @@ function undoToast(msg,onUndo){
 function hideUndo(){ var t=document.getElementById("undoToast"); if(t) t.remove(); }
 window.addEventListener("pagehide",function(){
   var job=PENDING; if(!job) return; PENDING=null;
-  job.items.forEach(function(it){
-    var h={apikey:SB.key}; if(SB.token) h.Authorization="Bearer "+SB.token;
-    try{ fetch(SB.url+"/rest/v1/"+it.coll+"?"+keyCol(it.coll)+"=eq."+encodeURIComponent(it.rec.id),{method:"DELETE",headers:h,keepalive:true}); }catch(e){}
-  });
+  dbRemoveBeacon(job.items);
 });
 
 /* ---------- αναίρεση / επανάληψη, ως 10 βήματα ---------- */
@@ -2671,10 +2852,9 @@ function histApply(ops){
   return ops.reduce(function(pr,op){
     return pr.then(function(){
       var arr=bucket(op.coll);
-      if(op.rec) return sbFetch("/rest/v1/"+op.coll,{method:"POST",body:JSON.stringify(MAP[op.coll].out(op.rec)),
-          extra:{Prefer:"resolution=merge-duplicates,return=minimal"}})
+      if(op.rec) return dbUpsert(op.coll,[MAP[op.coll].out(op.rec)])
         .then(function(){ var i=idxOf(arr,op.id), r=clone(op.rec); if(i>=0) arr[i]=r; else arr.push(r); });
-      return sbFetch("/rest/v1/"+op.coll+"?"+keyCol(op.coll)+"=eq."+encodeURIComponent(op.id),{method:"DELETE"})
+      return dbRemove(op.coll,[op.id])
         .then(function(){ var i=idxOf(arr,op.id); if(i>=0) arr.splice(i,1); });
     });
   },Promise.resolve());
@@ -3139,19 +3319,103 @@ document.getElementById("gateForm").addEventListener("submit",function(e){
   var btn=document.getElementById("gateBtn"); btn.disabled=true; btn.textContent="Σύνδεση…";
   sbLogin(document.getElementById("gateEmail").value.trim(),
           document.getElementById("gatePass").value)
-  .then(function(){ showApp(); return loadAll(); })
-  .catch(function(){ showLogin("Λάθος email ή κωδικός."); })
+  .then(function(){
+    showApp();
+    return loadAll().catch(function(e){
+      sbClear();
+      showLogin(denied(e)?"Αυτός ο λογαριασμός δεν έχει πρόσβαση στα δεδομένα.":"Δεν φορτώθηκαν τα δεδομένα. Δοκίμασε ξανά.");
+      throw "shown";
+    });
+  })
+  .catch(function(e){ if(e!=="shown") showLogin("Λάθος email ή κωδικός."); })
   .then(function(){ btn.disabled=false; btn.textContent="Σύνδεση"; });
 });
 document.getElementById("btnLogout").onclick=function(){
-  commitPending().then(function(){ sbClear(); location.reload(); });
+  commitPending().then(sbClear).then(function(){ location.reload(); });
 };
+/* ---------- μεταφορά Supabase → Firebase ----------
+   Διαβάζει όλους τους πίνακες από το Supabase (δεν αλλάζει τίποτα εκεί), τους γράφει ως έχουν
+   στο Firestore, σβήνει ό,τι παραπάνω υπάρχει στο Firestore, και μετά συγκρίνει μία-μία τις εγγραφές. */
+function sortedJson(v){
+  if(Array.isArray(v)) return "["+v.map(sortedJson).join(",")+"]";
+  if(v&&typeof v==="object") return "{"+Object.keys(v).sort().map(function(k){ return JSON.stringify(k)+":"+sortedJson(v[k]); }).join(",")+"}";
+  return JSON.stringify(v===undefined?null:v);
+}
+function migrateFromSupabase(){
+  openModal('<h2>Μεταφορά από Supabase</h2>'+
+    '<p class="hint">Αντιγράφει όλα τα δεδομένα (απόθεμα, κινήσεις, δεσμεύσεις, παραγγελίες, πελάτες, προϊόντα, τιμολόγηση) '+
+    'από το Supabase στο Firebase, ακριβώς όπως είναι. Το Supabase δεν αλλάζει. Μπορεί να ξανατρέξει όσες φορές θέλεις: '+
+    'κάθε φορά το Firebase γίνεται ίδιο με το Supabase.</p>'+
+    '<form id="mgF"><label>Email στο Supabase<input type="email" id="mgE" required value="'+esc(SB.email)+'"></label>'+
+    '<label>Κωδικός στο Supabase<input type="password" id="mgP" required autocomplete="current-password"></label>'+
+    '<p class="calc" id="mgMsg" hidden></p>'+
+    '<div class="acts"><button type="button" class="btn" id="mgNo">Κλείσιμο</button>'+
+    '<button type="submit" class="btn btn-primary" id="mgGo">Μεταφορά</button></div></form>');
+  var msg=document.getElementById("mgMsg");
+  function say(t){ msg.hidden=false; msg.textContent=t; }
+  document.getElementById("mgNo").onclick=closeModal;
+  document.getElementById("mgF").addEventListener("submit",function(e){
+    e.preventDefault();
+    var go=document.getElementById("mgGo"); go.disabled=true;
+    var src={}, tok="";
+    function sGet(t,off,acc){
+      return fetch(SB.url+"/rest/v1/"+t+"?select=*&order="+keyCol(t)+"&limit=1000&offset="+off,
+        {headers:{apikey:SB.key,Authorization:"Bearer "+tok}})
+      .then(function(r){ if(!r.ok) return r.text().then(function(x){ throw new Error(t+": "+x); }); return r.json(); })
+      .then(function(rows){ acc=acc.concat(rows); return rows.length===1000?sGet(t,off+1000,acc):acc; });
+    }
+    say("Σύνδεση στο Supabase…");
+    fetch(SB.url+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:SB.key,"Content-Type":"application/json"},
+      body:JSON.stringify({email:document.getElementById("mgE").value.trim(),password:document.getElementById("mgP").value})})
+    .then(function(r){ if(!r.ok) throw new Error("Λάθος email ή κωδικός Supabase"); return r.json(); })
+    .then(function(j){
+      tok=j.access_token; say("Διαβάζω τα δεδομένα από το Supabase…");
+      return FS_COLLS.reduce(function(pr,t){
+        return pr.then(function(){ return sGet(t,0,[]).then(function(rows){ src[t]=rows; }); });
+      },Promise.resolve());
+    })
+    .then(function(){ say("Ελέγχω τι υπάρχει ήδη στο Firebase…"); return fsFull(""); })
+    .then(function(dst){
+      var w=[], n=0;
+      FS_COLLS.forEach(function(t){
+        var keep={}; src[t].forEach(function(r){ keep[String(r[keyCol(t)])]=1; });
+        var extra=Object.keys(dst.rows[t]).filter(function(id){ return !keep[id]; });
+        w=w.concat(fsUpsertWrites(t,src[t]).filter(function(x){ return x.update; }));
+        if(extra.length) w=w.concat(fsDeleteWrites(t,extra));
+        n+=src[t].length;
+      });
+      say("Γράφω "+n+" εγγραφές στο Firebase…");
+      return fsCommitChunks(w);
+    })
+    .then(function(){ say("Έλεγχος: συγκρίνω μία-μία τις εγγραφές…"); return fsFull(""); })
+    .then(function(dst){
+      var rows=[], bad=0;
+      FS_COLLS.forEach(function(t){
+        var diff=0, d=dst.rows[t], cnt=Object.keys(d).length;
+        src[t].forEach(function(r){ var x=d[String(r[keyCol(t)])]; if(!x||sortedJson(x)!==sortedJson(r)) diff++; });
+        if(cnt!==src[t].length) diff+=Math.abs(cnt-src[t].length);
+        bad+=diff;
+        rows.push('<tr><td>'+esc(t)+'</td><td class="num">'+src[t].length+'</td><td class="num">'+cnt+'</td><td>'+(diff?'<span class="pill p-crit">'+diff+' διαφορές</span>':'<span class="pill p-ok">ίδια</span>')+'</td></tr>');
+      });
+      document.getElementById("mgF").innerHTML='<table class="pp-lines"><thead><tr><th>Πίνακας</th><th class="num">Supabase</th><th class="num">Firebase</th><th></th></tr></thead><tbody>'+rows.join("")+'</tbody></table>'+
+        '<p class="calc">'+(bad?'Βρέθηκαν διαφορές — πάτα ξανά «Μεταφορά από Supabase».':'Όλα μεταφέρθηκαν ακριβώς ίδια. Η εφαρμογή δουλεύει πλέον με το Firebase.')+'</p>'+
+        '<div class="acts"><button type="button" class="btn btn-primary" id="mgOk">Εντάξει</button></div>';
+      document.getElementById("mgOk").onclick=closeModal;
+      return loadAll(true);
+    })
+    .catch(function(err){ go.disabled=false; say("Η μεταφορά σταμάτησε: "+(err&&err.message||err)+". Τίποτα δεν χάθηκε· δοκίμασε ξανά."); });
+  });
+}
+(function(){
+  var b=document.getElementById("btnMigrate");
+  if(FB && SB.url && SB.key){ b.hidden=false; b.onclick=migrateFromSupabase; }
+})();
 document.getElementById("btnRefresh").onclick=function(){ loadAll(); };
 document.getElementById("btnExport").onclick=exportAll;
 document.getElementById("btnCsv").onclick=exportCSV;
 
 (function start(){
-  if(!SB.url||!SB.key){
+  if(!FB && (!SB.url||!SB.key)){
     showLogin("Λείπουν τα στοιχεία σύνδεσης. Άνοιξε το αρχείο και συμπλήρωσε url και key στην κορυφή.");
     document.getElementById("gateForm").hidden=true;
     return;
