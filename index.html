@@ -626,6 +626,7 @@ window.AGRINNERA_CONFIG = {
         <h2>Προϊόντα</h2>
         <span class="sub">Συσκευασία, χρόνος παράδοσης και μηνιαία ζήτηση από το demand plan</span>
         <button class="btn btn-sm" id="prodXlsx" title="Τα προϊόντα σε αρχείο Excel">Εξαγωγή Excel</button>
+        <button class="btn btn-sm" id="plUpdate" title="Νέες τιμές αγοράς από τον τιμοκατάλογο Schaumann 02/11/2026">Τιμοκατάλογος 02/11</button>
         <button class="btn btn-sm btn-primary" id="newProd">+ Νέο προϊόν</button>
       </div>
       <div class="tw"><table id="prodTable">
@@ -2369,6 +2370,166 @@ function deleteProduct(pid){
   }
   deleteRecord("products",pid,"Το «"+p.name+"» διαγράφηκε");
 }
+/* ---------- τιμοκατάλογος Schaumann 02/11/2026 (μίας χρήσης) ----------
+   Τιμή αγοράς ανά τεμάχιο: για τιμές ανά 100 κιλά = τιμή ÷ 100 × κιλά τεμαχίου (από τον κωδικό, π.χ. -0025 = 25 κιλά)·
+   για τιμές ανά τεμάχιο (ST) = η τιμή. Γραμμές «on request» δεν περιλαμβάνονται.
+   [κωδικός, όνομα, κιλά τεμαχίου, € ανά τεμάχιο, τεμάχια/παλέτα] */
+var PL_2611=[
+  ["231267-0030", "RINDAVITAL VK CLASSIC", 30, 31.5, 36],
+  ["232082-0030", "OVITAL XP MAIS", 30, 44.7, 36],
+  ["232120-0000", "MELOVIT FLÜSSIG (5 ltr.)", null, 35.0, null],
+  ["232214-0025", "KALBI MILCH FIT", 25, 59.25, 40],
+  ["232820-0030", "MILLAPHOS ZIEGENGOLD", 30, 29.4, 36],
+  ["234068-0025", "SCHAUMANN FASERNKONZENTRAT GRA", 25, 16.0, 33],
+  ["234378-0030", "NATUPIG ZL 70", 30, 35.4, 36],
+  ["234484-0030", "NATUPIG ZT 50 FORTE", 30, 33.0, 36],
+  ["235495-0030", "SCHAUMASAN BASIS (ECO)", 30, 45.0, 30],
+  ["235651-0030", "SCHAUMASAN BASIS (CONVENTIONAL!!!)", 30, 44.7, 30],
+  ["235997-0025", "SCHAUMASAN CONTROL", 25, 59.5, 39],
+  ["237531-0030", "RINDAMAST UNI RVB ATG", 30, 18.3, 36],
+  ["237816-0000", "TIRSANA 1312 EU", null, 127.0, null],
+  ["238009-0025", "KALBI MILCH PRIMUS PROTECT", 25, 66.75, 30],
+  ["238014-0000", "KALBI VITAL", null, 22.0, 364],
+  ["238037-0030", "KALVICIN", 30, 34.2, 39],
+  ["238055-0025", "KALBI MILCH TOP", 25, 77.5, 40],
+  ["238114-0000", "ORGANOSEPT NEU (8X5 kg)", null, 55.0, null],
+  ["238163-0025", "PROFISTREU LB", 25, 15.0, 36],
+  ["238727-0025", "BI-LACTAL PLASMA", 25, 83.0, 30],
+  ["238832-0025", "SCHAUMALAC FERKELMIX NG (Feuchtwangen)", 25, 47.75, 27],
+  ["239044-0030", "NATUPIG F 110", 30, 46.8, 36],
+  ["239134-0025", "SCHAUMA PRE PLASMA (Una Hakra)", 25, 31.75, 40],
+  ["239271-0025", "SCHAUMALAC F START 70-10 PRO (Feuchtwangen)", 25, 45.0, 36],
+  ["321162-0025", "RINDAMAST UNI P", 25, 15.75, 36],
+  ["321261-0030", "RINDAVIT K 11 RVI BP", 30, 28.8, 36],
+  ["321502-0025", "RINDAMAST K SPEZIAL ASS-CO BP", 25, 21.5, 40],
+  ["322616-0020", "TRI-OVITAL MAIS", 20, 20.8, 48],
+  ["322632-0020", "OVITAL INTENSIV W (aus FW)", 20, 22.8, 50],
+  ["322635-0030", "OVITAL A", 30, 30.0, 35],
+  ["322637-0030", "OVITAL MM CV", 30, 36.3, 36],
+  ["322700-0030", "OVITAL MM-E CV", 30, 33.3, 36],
+  ["322773-0020", "OVITAL PRE MM CV - 10", 20, 36.8, 60],
+  ["322806-0025", "MILLAPHOS Z", 25, 17.25, 42],
+  ["322823-0025", "MILLAPHOS L", 25, 17.25, 36],
+  ["322824-0025", "MILLAPHOS WEIDE", 25, 13.25, 42],
+  ["322855-0025", "MILLAPHOS PRO", 25, 15.0, 39],
+  ["322871-0025", "MILLAPHOS Z OLYMPOUS", 25, 23.0, 36],
+  ["322903-0025", "MILLAPHOS Z 15", 25, 24.25, 36],
+  ["322905-0025", "MILLAPHOS Z 15 RVI", 25, 24.5, 42],
+  ["322927-0025", "MILLAPHOS Z 15 RVI ATG", 25, 26.5, 42],
+  ["323005-0025", "SCHAUMAPHOS M 60", 25, 18.25, 40],
+  ["323161-0025", "SCHAUMA PRO M 55 M", 25, 20.0, 36],
+  ["323172-0030", "SCHAUMAPRO VM 80 / M", 30, 29.1, 36],
+  ["323457-0030", "SCHAUMASAN", 30, 39.0, 30],
+  ["324016-0030", "SCHAUMAPHOS Z", 30, 26.1, 36],
+  ["324026-0030", "SCHAUMA PRO ZL 60 ATG", 30, 31.2, 36],
+  ["324028-0030", "SCHAUMA PRO ZT 40 ATG", 30, 29.1, 36],
+  ["324065-0030", "SCHAUMAPRO Z 50", 30, 29.7, 36],
+  ["324216-0020", "MINERAL ZT 90-10", 20, 31.4, 50],
+  ["324249-0020", "MINERAL ZL 210-10 PROTECT ATG", 20, 42.6, 50],
+  ["325591-0025", "PRE-NATUPIG M 200-1,5", 25, 41.75, 36],
+  ["325651-0030", "NATUPIG M 240 TRY", 30, 52.5, null],
+  ["326020-0025", "RINDAMAST E", 25, 12.5, 42],
+  ["326022-0030", "RINDAMAST V", 30, 17.1, 36],
+  ["326031-0030", "RINDAMIN LF", 30, 16.8, 36],
+  ["326126-0005", "RINDAVITAL ENERGIETRUNK", 5, 10.3, 100],
+  ["326156-0025", "RINDAVITAL VK", 25, 31.0, 40],
+  ["326195-0030", "RINDAVIT TMR 91", 30, 20.4, 36],
+  ["326265-0030", "RINDAVIT K11 ASS-CO ATG", 30, 29.7, 36],
+  ["326335-0030", "RINDAMIN BP", 30, 21.9, 36],
+  ["326434-0030", "RINDAVIT K 11 ATG", 30, 26.7, 36],
+  ["326459-0025", "RINDAMAST UNI", 25, 13.25, 40],
+  ["326462-0030", "RINDAMAST FINISHER", 30, 18.0, 36],
+  ["327784-0030", "RINDAVIT K11 RVI ATG", 30, 42.3, 36],
+  ["328023-0004", "KALBI-LYT", 4, 15.8, 50],
+  ["328576-0020", "SCHAUMAPRO F 80 / M", 20, 26.2, 50],
+  ["328692-0020", "SCHAUMAPRO PROTECT F 95", 20, 28.0, 48],
+  ["328704-0020", "MINERAL F 240-15", 20, 41.2, 50],
+  ["328810-0020", "MINERAL F 240-20", 20, 40.4, 50],
+  ["902237-0001", "KALBI-FERM 2x 500g", 1, 12.7, null],
+  ["232913-0020", "MILLAPHOS LECKSCHALE ATG", 20, 20.8, 24],
+  ["236202-0100", "SCHAUMANN LECKMASSE", 100, 95.0, 4],
+  ["236204-0065", "RINDAVIT PRE-LICK ATG", 65, 83.2, 9],
+  ["236220-0010", "SCHAUMANN LECKSTEIN", 10, 4.6, 96],
+  ["237924-0025", "SCHAUMANN LECKMASSE", 25, 24.5, 24],
+  ["322892-0015", "MILLAPHOS LECKSCHALE GR", 15, 16.2, 30],
+  ["275626-0025", "SCHAUMACID GEL", 25, 37.75, 36],
+  ["275704-0230", "SWEET LIQUID", 230, 209.3, 4],
+  ["275704-1100", "SWEET LIQUID", 1100, 924.0, null],
+  ["275794-0025", "SCHAUMACID DRY", 25, 79.25, 39],
+  ["325804-0025", "SCHAUMACID A GRANULAT", 25, 40.25, 36],
+  ["324951-0000", "BONCROP FLOW 10L (AGRINERRA)", 10.0, 125.0, 60],
+  ["324953-0000", "BONCROP FLOW 10L (KOTSAFTIS)", 10.0, 125.0, 60],
+  ["326707-0000", "BONSILAGE ALFA 100G (konv)", 0.1, 67.75, 1800],
+  ["xx6907-0000", "BONSILAGE ALFA 400G (konv)", 0.4, 269.5, 700],
+  ["xx67xx-0000", "BONSILAGE ALFA 100G (öko)", 0.1, 67.75, 1800],
+  ["326727-0000", "BONSILAGE SPEED G 100G (konv)", 0.1, 73.75, 1800],
+  ["xx6927-0000", "BONSILAGE SPEED G 400G (konv)", 0.4, 293.5, 700],
+  ["xx67xx-0000", "BONSILAGE SPEED G 100G (öko)", 0.1, 73.75, 1800],
+  ["326729-0000", "BONSILAGE FIT G 100G (konv)", 0.1, 71.75, 1800],
+  ["326757-0000", "BONSILAGE SPEED M 100G (konv)", 0.1, 71.0, 1800],
+  ["xx6957-0000", "BONSILAGE SPEED M 400G (konv)", 0.4, 281.0, 700],
+  ["326787-0000", "B BONSILAGE SPEED M 100G (öko)", 0.1, 71.0, 1800],
+  ["326759-0000", "BONSILAGE FIT M 100G (konv)", 0.1, 71.0, 1800],
+  ["xx6959-0000", "BONSILAGE FIT M 400G (konv)", 0.4, 281.0, 700],
+  ["xx67xx-0000", "BONSILAGE FIT M 100G (öko)", 0.1, 71.0, 1800],
+  ["326713-0000", "BONSILAGE PLUS 100G (konv)", 0.1, 66.75, 1800],
+  ["xx6913-0000", "BONSILAGE PLUS 400G (konv)", 0.4, 265.5, 700],
+  ["xx67xx-0000", "BONSILAGE PLUS 100G (öko)", 0.1, 66.75, 1800],
+  ["326715-0000", "BONSILAGE MAIS 100G (konv)", 0.1, 68.5, 1800],
+  ["xx6915-0000", "BONSILAGE MAIS 400G (konv)", 0.4, 271.0, 700],
+  ["xx67xx-0000", "BONSILAGE MAIS 100G (öko)", 0.1, 68.5, 1800],
+  ["436740-0000", "MIXING BUCKET 2,5L", null, 5.0, null],
+  ["906799-0000", "MIXING BUCKET 17L", null, 15.0, null]
+];
+function plNorm(s){ return String(s||"").toUpperCase().replace(/\s+/g," ").trim(); }
+function plMatch(){
+  var byName={}, nameCnt={};
+  PL_2611.forEach(function(l){ var k=plNorm(l[1]); nameCnt[k]=(nameCnt[k]||0)+1; byName[k]=l; });
+  var pNameCnt={}; products.forEach(function(p){ var k=plNorm(p.name); pNameCnt[k]=(pNameCnt[k]||0)+1; });
+  var used={}, rows=[];
+  products.forEach(function(p){
+    var code=String(p.code||"").trim(), l=null;
+    PL_2611.forEach(function(x){ if(!l && x[0].indexOf("x")<0 && (x[0]===code || x[0]===String(p.id))) l=x; });
+    if(!l){ var k=plNorm(p.name); if(nameCnt[k]===1 && pNameCnt[k]===1) l=byName[k]; }
+    if(!l) return;
+    used[PL_2611.indexOf(l)]=1;
+    rows.push({p:p,l:l,old:Number(p.price_eur_kg)||0,nw:l[3]});
+  });
+  var missing=PL_2611.filter(function(l,i){ return !used[i]; });
+  return {rows:rows,missing:missing};
+}
+function plOpen(){
+  var m=plMatch(), ch=m.rows.filter(function(r){ return Math.abs(r.old-r.nw)>0.004; });
+  ch.sort(function(a,b){ return a.p.name.localeCompare(b.p.name,"el"); });
+  var same=m.rows.length-ch.length;
+  var pal=m.rows.filter(function(r){ return r.l[4] && r.p.bags_pallet && r.l[4]!==r.p.bags_pallet; });
+  function pct(r){ if(!r.old) return "νέα"; var d=(r.nw-r.old)/r.old*100; return (d>0?"+":"")+NF2.format(d)+"%"; }
+  openModal('<h2>Τιμοκατάλογος 02/11/2026</h2>'+
+    '<p class="hint">Τιμή αγοράς ανά τεμάχιο. Για τιμές ανά 100 κιλά: τιμή ÷ 100 × κιλά τεμαχίου. '+
+    'Αλλάζουν <b>'+ch.length+'</b> προϊόντα· '+same+' έχουν ήδη την ίδια τιμή. Τίποτα άλλο δεν αλλάζει (απόθεμα, παλέτες, τιμές πώλησης).</p>'+
+    (ch.length?'<div class="tw" style="max-height:52vh;overflow:auto"><table class="pp-lines"><thead><tr><th>Προϊόν</th><th class="num">Τώρα</th><th class="num">Νέα</th><th class="num">Μεταβολή</th></tr></thead><tbody>'+
+      ch.map(function(r){ return '<tr><td>'+esc(r.p.name)+'<br><small class="hint">'+esc(r.l[0])+(r.l[2]?' · '+NF4.format(r.l[2])+' κιλά':'')+'</small></td>'+
+        '<td class="num">'+(r.old?eur2(r.old):'—')+'</td><td class="num"><b>'+eur2(r.nw)+'</b></td><td class="num">'+pct(r)+'</td></tr>'; }).join("")+
+      '</tbody></table></div>':'<p class="calc">Όλες οι τιμές είναι ήδη ενημερωμένες.</p>')+
+    (m.missing.length?'<details style="margin-top:10px"><summary>'+m.missing.length+' γραμμές του τιμοκαταλόγου δεν υπάρχουν στα προϊόντα (δεν προστίθενται)</summary><p class="hint">'+
+      m.missing.map(function(l){ return esc(l[1])+' ('+esc(l[0])+') '+eur2(l[3]); }).join(" · ")+'</p></details>':'')+
+    (pal.length?'<details style="margin-top:6px"><summary>'+pal.length+' προϊόντα έχουν άλλα τεμάχια/παλέτα στον τιμοκατάλογο (δεν αλλάζουν)</summary><p class="hint">'+
+      pal.map(function(r){ return esc(r.p.name)+': σύστημα '+r.p.bags_pallet+', τιμοκατάλογος '+r.l[4]; }).join(" · ")+'</p></details>':'')+
+    '<div class="acts"><button type="button" class="btn" id="plNo">Κλείσιμο</button>'+
+    (ch.length?'<button type="button" class="btn btn-primary" id="plGo">Εφαρμογή σε '+ch.length+' προϊόντα</button>':'')+'</div>');
+  document.getElementById("plNo").onclick=closeModal;
+  var go=document.getElementById("plGo"); if(!go) return;
+  go.onclick=function(){
+    go.disabled=true;
+    var recs=ch.map(function(r){ var x=clone(r.p); x.price_eur_kg=r.nw; return x; });
+    var wrec=m.rows.filter(function(r){ var c=priceRec(r.p.id); return r.l[2] && (!c || c.weight_kg!==r.l[2]); })
+      .map(function(r){ var c=priceRec(r.p.id), u=c?clone(c):{id:r.p.id,weight_kg:null,sale_price:null}; u.weight_kg=r.l[2]; return u; });
+    saveAll("products",recs).then(function(){ return wrec.length?saveAll("product_prices",wrec):null; })
+    .then(function(){ closeModal(); toast("Ενημερώθηκαν "+recs.length+" τιμές αγοράς · Αναίρεση με ↶"); },
+          function(){ go.disabled=false; });
+  };
+}
+document.getElementById("plUpdate").onclick=plOpen;
 document.getElementById("newProd").onclick=function(){ prodForm(); };
 document.addEventListener("click",function(e){
   var b=e.target.closest("[data-del-prod]"); if(b) deleteProduct(b.getAttribute("data-del-prod"));
